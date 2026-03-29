@@ -61,6 +61,18 @@ export async function addItemToServer(item) {
   await apiPost('/items', item);
 }
 
+export async function updateItemOnServer(item) {
+  const items = loadItemsLocal().map(i => i.id === item.id ? item : i);
+  localStorage.setItem('shimmer-strip-items', JSON.stringify(items));
+  try {
+    await fetch(`${API_BASE}/items/${item.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+  } catch { /* server not available */ }
+}
+
 export async function removeItemFromServer(id) {
   const items = loadItemsLocal().filter(i => i.id !== id);
   localStorage.setItem('shimmer-strip-items', JSON.stringify(items));

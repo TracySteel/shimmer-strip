@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 // Data lives in a simple JSON file on disk
 const DATA_DIR = path.join(__dirname, 'data');
@@ -76,6 +76,15 @@ app.post('/api/items', (req, res) => {
   res.json({ ok: true, item });
 });
 
+app.put('/api/items/:id', (req, res) => {
+  const data = readData();
+  const idx = data.items.findIndex(i => String(i.id) === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Item not found' });
+  data.items[idx] = { ...data.items[idx], ...req.body };
+  writeData(data);
+  res.json({ ok: true, item: data.items[idx] });
+});
+
 app.delete('/api/items/:id', (req, res) => {
   const data = readData();
   data.items = data.items.filter(i => String(i.id) !== req.params.id);
@@ -124,7 +133,7 @@ app.delete('/api/colours/:name', (req, res) => {
 });
 
 // SPA fallback — serve index.html for any non-API route
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 

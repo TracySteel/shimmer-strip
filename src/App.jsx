@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   loadItems, saveItems, loadOutfits, saveOutfits,
-  fetchAllData, addItemToServer, removeItemFromServer,
+  fetchAllData, addItemToServer, updateItemOnServer, removeItemFromServer,
   addOutfitToServer, removeOutfitFromServer,
   addColourToServer, removeColourFromServer,
 } from "./storage.js";
@@ -9,7 +9,7 @@ import { COLOURS, getAllColours, getColourObj, outfitColourScore, loadCustomColo
 import { generateBestOutfit, generateChaosOutfit } from "./outfitEngine.js";
 
 const CATEGORIES = [
-  "Top", "Bottom", "Dress", "Jumpsuit", "Jacket", "Shoes", "Accessory", "Bag", "Hat", "Jewellery",
+  "Top", "Bottom", "Dress", "Matching Set", "Jumpsuit", "Pyjamas", "Jacket", "Shoes", "Accessory", "Bag", "Hat", "Jewellery",
 ];
 
 const VIBES = [
@@ -103,7 +103,7 @@ function ConfirmModal({ message, itemName, onConfirm, onCancel }) {
 }
 
 // ─── Item Card ───
-function ItemCard({ item, onRemove, onSelect, selected, showSelect, idx }) {
+function ItemCard({ item, onRemove, onEdit, onSelect, selected, showSelect, idx }) {
   const col = getColourObj(item.colour);
   return (
     <div
@@ -167,6 +167,18 @@ function ItemCard({ item, onRemove, onSelect, selected, showSelect, idx }) {
       <div style={{ marginTop: 4, fontSize: 10, color: "#6a5a4a" }}>
         {"\u2622\uFE0F".repeat(item.apocalypseRating)}{"\u00B7".repeat(5 - item.apocalypseRating)}
       </div>
+      {onEdit && (
+        <button
+          onClick={e => { e.stopPropagation(); onEdit(item); }}
+          style={{
+            position: "absolute", top: 8, right: onRemove ? 32 : 8,
+            background: "rgba(0,0,0,0.4)", border: "none",
+            color: "#8a7a6a", width: 20, height: 20,
+            borderRadius: "50%", fontSize: 10, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >{"\u270E"}</button>
+      )}
       {onRemove && (
         <button
           onClick={e => { e.stopPropagation(); onRemove(item.id); }}
@@ -237,7 +249,8 @@ export default function App() {
   const [newColour, setNewColour] = useState({ name: "", hex: "#c4956a", warmth: "warm" });
   const allColours = [...COLOURS, ...customColours];
 
-  // Add item form
+  // Add/edit item form
+  const [editingItem, setEditingItem] = useState(null); // null = adding, item id = editing
   const [newItem, setNewItem] = useState({
     name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3,
   });
@@ -273,6 +286,37 @@ export default function App() {
     addItemToServer(item);
     setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
     showToast(`${item.name} added to the wardrobe! \u2728`);
+    setView("wardrobe");
+  };
+
+  const startEditItem = (item) => {
+    setEditingItem(item.id);
+    setNewItem({
+      name: item.name,
+      category: item.category,
+      colour: item.colour,
+      vibes: item.vibes || [],
+      weatherTags: item.weatherTags || [],
+      photo: item.photo || null,
+      apocalypseRating: item.apocalypseRating || 3,
+    });
+    setView("add");
+  };
+
+  const saveEditItem = () => {
+    if (!newItem.name.trim()) { showToast("Give it a name, love! \uD83D\uDC96"); return; }
+    const updated = { ...newItem, id: editingItem, dateAdded: items.find(i => i.id === editingItem)?.dateAdded };
+    setItems(prev => prev.map(i => i.id === editingItem ? updated : i));
+    updateItemOnServer(updated);
+    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
+    setEditingItem(null);
+    showToast(`${updated.name} updated! \u2728`);
+    setView("wardrobe");
+  };
+
+  const cancelEdit = () => {
+    setEditingItem(null);
+    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
     setView("wardrobe");
   };
 
@@ -469,7 +513,13 @@ export default function App() {
         ].map(tab => (
           <button
             key={tab.id}
-            onClick={() => setView(tab.id)}
+            onClick={() => {
+              if (tab.id === "add" && editingItem) {
+                setEditingItem(null);
+                setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
+              }
+              setView(tab.id);
+            }}
             style={{
               background: view === tab.id || (tab.id === "surpriseSetup" && view === "surprise")
                 ? "rgba(196,149,106,0.2)" : "rgba(196,149,106,0.05)",
@@ -525,7 +575,7 @@ export default function App() {
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
                   {filteredItems.map((item, idx) => (
-                    <ItemCard key={item.id} item={item} onRemove={requestRemoveItem} idx={idx} />
+                    <ItemCard key={item.id} item={item} onRemove={requestRemoveItem} onEdit={startEditItem} idx={idx} />
                   ))}
                 </div>
               </>
@@ -543,7 +593,7 @@ export default function App() {
             <h2 style={{
               fontSize: 16, letterSpacing: 2, textTransform: "uppercase",
               color: "#c4956a", margin: "0 0 24px", fontWeight: 400, textAlign: "center",
-            }}>{"\u2728"} New Piece</h2>
+            }}>{editingItem ? "\u270E Edit Piece" : "\u2728 New Piece"}</h2>
 
             <label style={labelStyle}>What is it?</label>
             <input
@@ -771,14 +821,23 @@ export default function App() {
               )}
             </div>
 
-            <button onClick={addItem} style={{
+            <button onClick={editingItem ? saveEditItem : addItem} style={{
               width: "100%", padding: 14,
               background: "linear-gradient(135deg, rgba(196,149,106,0.3), rgba(155,27,48,0.2))",
               border: "1px solid rgba(196,149,106,0.3)", borderRadius: 12,
               color: "#c4956a", fontSize: 14, fontFamily: "inherit",
               letterSpacing: 2, textTransform: "uppercase", cursor: "pointer",
               transition: "all 0.3s ease",
-            }}>Add to Wardrobe {"\u2728"}</button>
+            }}>{editingItem ? "Save Changes \u2728" : "Add to Wardrobe \u2728"}</button>
+            {editingItem && (
+              <button onClick={cancelEdit} style={{
+                width: "100%", padding: 12, marginTop: 8,
+                background: "rgba(196,149,106,0.06)",
+                border: "1px solid rgba(196,149,106,0.1)", borderRadius: 12,
+                color: "#8a7a6a", fontSize: 12, fontFamily: "inherit",
+                letterSpacing: 1, textTransform: "uppercase", cursor: "pointer",
+              }}>Cancel</button>
+            )}
           </div>
         )}
 
