@@ -1,14 +1,19 @@
-// API-backed storage with localStorage fallback
-// When the server is available, data syncs to a JSON file on disk
-// so it works across all devices (phone, laptop, etc.)
+// Server-first storage with localStorage as cache.
+//
+// Architecture:
+// - Server (JSON file on Mac Mini via Express) is the source of truth
+// - localStorage is a fast local cache for first paint on repeat visits
+// - On mount: fetchAllData() → set React state from server, overwriting cache
+// - On mutation: optimistic React state update + server write, cache updated from React state
 
 const API_BASE = '/api';
 
+// ─── API helpers ───
 async function apiGet(endpoint) {
   try {
     const res = await fetch(`${API_BASE}${endpoint}`);
     if (res.ok) return await res.json();
-  } catch { /* server not available, fall through */ }
+  } catch { /* server not reachable */ }
   return null;
 }
 
@@ -23,6 +28,17 @@ async function apiPost(endpoint, body) {
   } catch { return false; }
 }
 
+async function apiPut(endpoint, body) {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 async function apiDelete(endpoint) {
   try {
     const res = await fetch(`${API_BASE}${endpoint}`, { method: 'DELETE' });
@@ -30,116 +46,102 @@ async function apiDelete(endpoint) {
   } catch { return false; }
 }
 
-// ─── Fetch all data from server on startup ───
+// ─── localStorage cache keys ───
+const LS_ITEMS = 'shimmer-strip-items';
+const LS_OUTFITS = 'shimmer-strip-outfits';
+const LS_CUSTOM_COLOURS = 'shimmer-strip-custom-colours';
+const LS_SETTINGS = 'shimmer-strip-settings';
+
+function lsRead(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function lsWrite(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    // localStorage can fail (full, disabled, private mode) — not fatal
+    console.warn('localStorage write failed:', err.message);
+  }
+}
+
+// ─── Initial load (for useState initializers) ───
+// Reads cache only — server fetch happens in useEffect via fetchAllData().
+// If cache is empty, returns []. That's fine — server will populate on mount.
+export function loadItems()         { return lsRead(LS_ITEMS) || []; }
+export function loadOutfits()       { return lsRead(LS_OUTFITS) || []; }
+export function loadCustomColours() { return lsRead(LS_CUSTOM_COLOURS) || []; }
+
+// ─── Cache writers (source of truth is React state) ───
+export function saveItems(items)              { lsWrite(LS_ITEMS, items); }
+export function saveOutfits(outfits)          { lsWrite(LS_OUTFITS, outfits); }
+export function saveCustomColoursCache(list)  { lsWrite(LS_CUSTOM_COLOURS, list); }
+
+// ─── Server sync on mount ───
+// Returns { items, outfits, customColours, fromServer } — fromServer:true means
+// we got real data from the API; false means we fell back to cache (offline).
 export async function fetchAllData() {
   const data = await apiGet('/data');
-  if (data) return data;
-  // Fallback to localStorage if server not available
+  if (data) {
+    // Server is source of truth. Update cache.
+    lsWrite(LS_ITEMS, data.items || []);
+    lsWrite(LS_OUTFITS, data.outfits || []);
+    lsWrite(LS_CUSTOM_COLOURS, data.customColours || []);
+    return {
+      items: data.items || [],
+      outfits: data.outfits || [],
+      customColours: data.customColours || [],
+      fromServer: true,
+    };
+  }
+  // Server unreachable — use cache
   return {
-    items: loadItemsLocal(),
-    outfits: loadOutfitsLocal(),
-    customColours: loadCustomColoursLocal(),
+    items: loadItems(),
+    outfits: loadOutfits(),
+    customColours: loadCustomColours(),
+    fromServer: false,
   };
 }
 
-// ─── Items ───
-function loadItemsLocal() {
-  try {
-    const raw = localStorage.getItem('shimmer-strip-items');
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
+// ─── Mutations ──────────────────────────────────────────────────────
+// Each mutation awaits the server. Returns true on success, false on failure.
+// The caller (App.jsx) is responsible for updating React state and rolling
+// back if we return false.
 
-export function loadItems() {
-  return loadItemsLocal();
-}
-
+// Items
 export async function addItemToServer(item) {
-  localStorage.setItem('shimmer-strip-items', JSON.stringify([
-    ...loadItemsLocal(), item
-  ]));
-  await apiPost('/items', item);
+  return await apiPost('/items', item);
 }
-
 export async function updateItemOnServer(item) {
-  const items = loadItemsLocal().map(i => i.id === item.id ? item : i);
-  localStorage.setItem('shimmer-strip-items', JSON.stringify(items));
-  try {
-    await fetch(`${API_BASE}/items/${item.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(item),
-    });
-  } catch { /* server not available */ }
+  return await apiPut(`/items/${item.id}`, item);
 }
-
 export async function removeItemFromServer(id) {
-  const items = loadItemsLocal().filter(i => i.id !== id);
-  localStorage.setItem('shimmer-strip-items', JSON.stringify(items));
-  await apiDelete(`/items/${id}`);
+  return await apiDelete(`/items/${id}`);
 }
 
-export function saveItems(items) {
-  localStorage.setItem('shimmer-strip-items', JSON.stringify(items));
-}
-
-// ─── Outfits ───
-function loadOutfitsLocal() {
-  try {
-    const raw = localStorage.getItem('shimmer-strip-outfits');
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-export function loadOutfits() {
-  return loadOutfitsLocal();
-}
-
+// Outfits
 export async function addOutfitToServer(outfit) {
-  localStorage.setItem('shimmer-strip-outfits', JSON.stringify([
-    ...loadOutfitsLocal(), outfit
-  ]));
-  await apiPost('/outfits', outfit);
+  return await apiPost('/outfits', outfit);
 }
-
 export async function removeOutfitFromServer(id) {
-  const outfits = loadOutfitsLocal().filter(o => o.id !== id);
-  localStorage.setItem('shimmer-strip-outfits', JSON.stringify(outfits));
-  await apiDelete(`/outfits/${id}`);
+  return await apiDelete(`/outfits/${id}`);
 }
 
-export function saveOutfits(outfits) {
-  localStorage.setItem('shimmer-strip-outfits', JSON.stringify(outfits));
-}
-
-// ─── Custom Colours ───
-function loadCustomColoursLocal() {
-  try {
-    const raw = localStorage.getItem('shimmer-strip-custom-colours');
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
+// Custom colours
 export async function addColourToServer(colour) {
-  const colours = [...loadCustomColoursLocal(), colour];
-  localStorage.setItem('shimmer-strip-custom-colours', JSON.stringify(colours));
-  await apiPost('/colours', colour);
+  return await apiPost('/colours', colour);
 }
-
 export async function removeColourFromServer(name) {
-  const colours = loadCustomColoursLocal().filter(c => c.name !== name);
-  localStorage.setItem('shimmer-strip-custom-colours', JSON.stringify(colours));
-  await apiDelete(`/colours/${encodeURIComponent(name)}`);
+  return await apiDelete(`/colours/${encodeURIComponent(name)}`);
 }
 
-// ─── Settings (localStorage only, not shared) ───
+// ─── Settings (localStorage only, device-specific) ───
 export function loadSettings() {
-  try {
-    const raw = localStorage.getItem('shimmer-strip-settings');
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
+  return lsRead(LS_SETTINGS) || {};
 }
-
 export function saveSettings(settings) {
-  localStorage.setItem('shimmer-strip-settings', JSON.stringify(settings));
+  lsWrite(LS_SETTINGS, settings);
 }

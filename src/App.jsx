@@ -255,23 +255,27 @@ export default function App() {
     name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3,
   });
 
-  // Load data from server on mount (falls back to localStorage)
+  // Load data from server on mount. Server is source of truth —
+  // always sync React state to whatever the server returns (including
+  // empty arrays, which are a legitimate state if you've deleted things).
+  // Falls back to localStorage cache if the server is unreachable.
   useEffect(() => {
     setAnimateIn(true);
     fetchAllData().then(data => {
-      if (data.items && data.items.length > 0) {
-        setItems(data.items);
-        saveItems(data.items);
-      }
-      if (data.outfits && data.outfits.length > 0) {
-        setSavedOutfits(data.outfits);
-        saveOutfits(data.outfits);
-      }
-      if (data.customColours && data.customColours.length > 0) {
-        setCustomColours(data.customColours);
+      setItems(data.items);
+      setSavedOutfits(data.outfits);
+      setCustomColours(data.customColours);
+      if (!data.fromServer) {
+        showToast("Offline — changes won't sync until reconnected \uD83C\uDF00");
       }
     });
   }, []);
+
+  // Keep localStorage cache in sync with React state on every change.
+  // This way the cache always matches the UI, and first paint on return
+  // visits is fast + accurate (server fetch still overrides if different).
+  useEffect(() => { saveItems(items); }, [items]);
+  useEffect(() => { saveOutfits(savedOutfits); }, [savedOutfits]);
 
   const showToast = msg => {
     setToast(msg);
@@ -279,14 +283,18 @@ export default function App() {
   };
 
   // ─── Item CRUD ───
-  const addItem = () => {
+  const addItem = async () => {
     if (!newItem.name.trim()) { showToast("Give it a name, love! \uD83D\uDC96"); return; }
     const item = { ...newItem, id: Date.now(), dateAdded: new Date().toLocaleDateString() };
-    setItems(prev => [...prev, item]);
-    addItemToServer(item);
+    setItems(prev => [...prev, item]); // optimistic
     setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
     showToast(`${item.name} added to the wardrobe! \u2728`);
     setView("wardrobe");
+    const ok = await addItemToServer(item);
+    if (!ok) {
+      setItems(prev => prev.filter(i => i.id !== item.id)); // rollback
+      showToast(`Couldn't save ${item.name} \u2014 server didn't respond \uD83D\uDE3F`);
+    }
   };
 
   const startEditItem = (item) => {
@@ -303,15 +311,20 @@ export default function App() {
     setView("add");
   };
 
-  const saveEditItem = () => {
+  const saveEditItem = async () => {
     if (!newItem.name.trim()) { showToast("Give it a name, love! \uD83D\uDC96"); return; }
-    const updated = { ...newItem, id: editingItem, dateAdded: items.find(i => i.id === editingItem)?.dateAdded };
-    setItems(prev => prev.map(i => i.id === editingItem ? updated : i));
-    updateItemOnServer(updated);
+    const prevItem = items.find(i => i.id === editingItem);
+    const updated = { ...newItem, id: editingItem, dateAdded: prevItem?.dateAdded };
+    setItems(prev => prev.map(i => i.id === editingItem ? updated : i)); // optimistic
     setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
     setEditingItem(null);
     showToast(`${updated.name} updated! \u2728`);
     setView("wardrobe");
+    const ok = await updateItemOnServer(updated);
+    if (!ok && prevItem) {
+      setItems(prev => prev.map(i => i.id === updated.id ? prevItem : i)); // rollback
+      showToast(`Couldn't save edit to ${updated.name} \uD83D\uDE3F`);
+    }
   };
 
   const cancelEdit = () => {
@@ -325,19 +338,30 @@ export default function App() {
     setConfirmDelete({ id, name: item?.name || "this item", type: "item" });
   };
 
-  const confirmRemoveItem = () => {
+  const confirmRemoveItem = async () => {
     if (!confirmDelete) return;
-    if (confirmDelete.type === "item") {
-      setItems(prev => prev.filter(i => i.id !== confirmDelete.id));
-      setOutfit(prev => prev.filter(i => i.id !== confirmDelete.id));
-      removeItemFromServer(confirmDelete.id);
-      showToast("Item removed \uD83C\uDF00");
-    } else {
-      setSavedOutfits(prev => prev.filter(o => o.id !== confirmDelete.id));
-      removeOutfitFromServer(confirmDelete.id);
-      showToast("Outfit removed \uD83C\uDF00");
-    }
+    const { id, type } = confirmDelete;
     setConfirmDelete(null);
+    if (type === "item") {
+      const prev = items.find(i => i.id === id);
+      setItems(cur => cur.filter(i => i.id !== id)); // optimistic
+      setOutfit(cur => cur.filter(i => i.id !== id));
+      showToast("Item removed \uD83C\uDF00");
+      const ok = await removeItemFromServer(id);
+      if (!ok && prev) {
+        setItems(cur => [...cur, prev]); // rollback
+        showToast(`Couldn't remove ${prev.name} \uD83D\uDE3F`);
+      }
+    } else {
+      const prev = savedOutfits.find(o => o.id === id);
+      setSavedOutfits(cur => cur.filter(o => o.id !== id)); // optimistic
+      showToast("Outfit removed \uD83C\uDF00");
+      const ok = await removeOutfitFromServer(id);
+      if (!ok && prev) {
+        setSavedOutfits(cur => [...cur, prev]); // rollback
+        showToast(`Couldn't remove ${prev.name} \uD83D\uDE3F`);
+      }
+    }
   };
 
   // ─── Outfit building ───
@@ -349,14 +373,18 @@ export default function App() {
     });
   };
 
-  const saveOutfit = () => {
+  const saveOutfit = async () => {
     if (outfit.length === 0) { showToast("Pick some pieces first! \uD83D\uDC0C"); return; }
     const name = `Outfit ${savedOutfits.length + 1}`;
     const newOutfit = { name, items: [...outfit], id: Date.now() };
-    setSavedOutfits(prev => [...prev, newOutfit]);
-    addOutfitToServer(newOutfit);
+    setSavedOutfits(prev => [...prev, newOutfit]); // optimistic
     showToast(`${name} saved! \uD83D\uDC96`);
     setOutfit([]);
+    const ok = await addOutfitToServer(newOutfit);
+    if (!ok) {
+      setSavedOutfits(prev => prev.filter(o => o.id !== newOutfit.id)); // rollback
+      showToast(`Couldn't save ${name} \uD83D\uDE3F`);
+    }
   };
 
   const requestDeleteOutfit = (id) => {
@@ -365,7 +393,7 @@ export default function App() {
   };
 
   // Custom colour management
-  const addCustomColour = () => {
+  const addCustomColour = async () => {
     if (!newColour.name.trim()) { showToast("Give the colour a name! \uD83C\uDF08"); return; }
     if (allColours.find(c => c.name === newColour.name)) { showToast("That name's taken, love! \uD83D\uDC0C"); return; }
     const colour = {
@@ -376,20 +404,31 @@ export default function App() {
       custom: true,
     };
     const updated = [...customColours, colour];
-    setCustomColours(updated);
-    saveCustomColours(updated);
-    addColourToServer(colour);
+    setCustomColours(updated); // optimistic
+    saveCustomColours(updated); // cache
     setNewColour({ name: "", hex: "#c4956a", warmth: "warm" });
     setShowColourCreator(false);
     showToast(`${colour.name} added to the palette! \uD83C\uDF08`);
+    const ok = await addColourToServer(colour);
+    if (!ok) {
+      setCustomColours(customColours); // rollback
+      saveCustomColours(customColours);
+      showToast(`Couldn't save ${colour.name} \uD83D\uDE3F`);
+    }
   };
 
-  const removeCustomColour = (name) => {
+  const removeCustomColour = async (name) => {
+    const prev = customColours;
     const updated = customColours.filter(c => c.name !== name);
-    setCustomColours(updated);
-    saveCustomColours(updated);
-    removeColourFromServer(name);
+    setCustomColours(updated); // optimistic
+    saveCustomColours(updated); // cache
     showToast("Colour removed \uD83C\uDF00");
+    const ok = await removeColourFromServer(name);
+    if (!ok) {
+      setCustomColours(prev); // rollback
+      saveCustomColours(prev);
+      showToast(`Couldn't remove ${name} \uD83D\uDE3F`);
+    }
   };
 
   // ─── Surprise Me ───
