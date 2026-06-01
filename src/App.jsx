@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   loadItems, saveItems, loadOutfits, saveOutfits,
   fetchAllData, addItemToServer, updateItemOnServer, removeItemFromServer,
-  addOutfitToServer, removeOutfitFromServer,
+  addOutfitToServer, updateOutfitOnServer, removeOutfitFromServer,
   addColourToServer, removeColourFromServer,
 } from "./storage.js";
 import { COLOURS, getAllColours, getColourObj, outfitColourScore, loadCustomColours, saveCustomColours, guessWarmth } from "./colours.js";
@@ -243,6 +243,13 @@ export default function App() {
   // Delete confirmation
   const [confirmDelete, setConfirmDelete] = useState(null); // { id, name, type: "item"|"outfit" }
 
+  // Outfit save/edit form
+  const [showOutfitSave, setShowOutfitSave] = useState(false);
+  const [outfitForm, setOutfitForm] = useState({ name: "", vibes: [], weatherTags: [] });
+  const [expandedOutfit, setExpandedOutfit] = useState(null);
+  const [outfitFilter, setOutfitFilter] = useState({ vibe: "All", weather: "All" });
+  const [editingOutfitId, setEditingOutfitId] = useState(null);
+
   // Custom colours
   const [customColours, setCustomColours] = useState(() => loadCustomColours());
   const [showColourCreator, setShowColourCreator] = useState(false);
@@ -373,18 +380,56 @@ export default function App() {
     });
   };
 
-  const saveOutfit = async () => {
+  const startSaveOutfit = () => {
     if (outfit.length === 0) { showToast("Pick some pieces first! \uD83D\uDC0C"); return; }
-    const name = `Outfit ${savedOutfits.length + 1}`;
-    const newOutfit = { name, items: [...outfit], id: Date.now() };
-    setSavedOutfits(prev => [...prev, newOutfit]); // optimistic
+    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setShowOutfitSave(true);
+  };
+
+  const confirmSaveOutfit = async () => {
+    const name = outfitForm.name.trim() || `Outfit ${savedOutfits.length + 1}`;
+    const newOutfit = {
+      name, items: [...outfit], id: Date.now(),
+      vibes: outfitForm.vibes, weatherTags: outfitForm.weatherTags,
+    };
+    setSavedOutfits(prev => [...prev, newOutfit]);
     showToast(`${name} saved! \uD83D\uDC96`);
     setOutfit([]);
+    setShowOutfitSave(false);
     const ok = await addOutfitToServer(newOutfit);
     if (!ok) {
-      setSavedOutfits(prev => prev.filter(o => o.id !== newOutfit.id)); // rollback
+      setSavedOutfits(prev => prev.filter(o => o.id !== newOutfit.id));
       showToast(`Couldn't save ${name} \uD83D\uDE3F`);
     }
+  };
+
+  const startEditOutfit = (o) => {
+    setEditingOutfitId(o.id);
+    setOutfitForm({ name: o.name, vibes: o.vibes || [], weatherTags: o.weatherTags || [] });
+  };
+
+  const saveEditOutfit = async () => {
+    const prev = savedOutfits.find(o => o.id === editingOutfitId);
+    const updated = {
+      ...prev,
+      name: outfitForm.name.trim() || prev.name,
+      vibes: outfitForm.vibes,
+      weatherTags: outfitForm.weatherTags,
+    };
+    setSavedOutfits(cur => cur.map(o => o.id === editingOutfitId ? updated : o));
+    setEditingOutfitId(null);
+    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    showToast(`${updated.name} updated! \u2728`);
+    const ok = await updateOutfitOnServer(updated);
+    if (!ok && prev) {
+      setSavedOutfits(cur => cur.map(o => o.id === updated.id ? prev : o));
+      showToast(`Couldn't save ${updated.name} \uD83D\uDE3F`);
+    }
+  };
+
+  const cancelEditOutfit = () => {
+    setEditingOutfitId(null);
+    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
   };
 
   const requestDeleteOutfit = (id) => {
@@ -472,6 +517,12 @@ export default function App() {
     if (filter.category !== "All" && item.category !== filter.category) return false;
     if (filter.colour !== "All" && item.colour !== filter.colour) return false;
     if (filter.vibe !== "All" && !(item.vibes && item.vibes.includes(filter.vibe))) return false;
+    return true;
+  });
+
+  const filteredOutfits = savedOutfits.filter(o => {
+    if (outfitFilter.vibe !== "All" && !(o.vibes && o.vibes.includes(outfitFilter.vibe))) return false;
+    if (outfitFilter.weather !== "All" && !(o.weatherTags && o.weatherTags.includes(outfitFilter.weather))) return false;
     return true;
   });
 
@@ -702,6 +753,23 @@ export default function App() {
                 <p style={{ fontSize: 11, color: "#c4956a", margin: "0 0 12px", letterSpacing: 1, textTransform: "uppercase" }}>
                   {"\uD83C\uDF08"} New Custom Colour
                 </p>
+                {newItem.photo && (
+                  <div style={{
+                    display: "flex", gap: 10, alignItems: "flex-start",
+                    marginBottom: 12, padding: 10,
+                    background: "rgba(196,149,106,0.04)",
+                    borderRadius: 10, border: "1px solid rgba(196,149,106,0.1)",
+                  }}>
+                    <img src={newItem.photo} alt="reference" style={{
+                      width: 80, height: 80, objectFit: "cover",
+                      borderRadius: 8, border: "1px solid rgba(196,149,106,0.2)",
+                      flexShrink: 0,
+                    }} />
+                    <p style={{ fontSize: 10, color: "#6a5a4a", margin: 0, fontStyle: "italic", lineHeight: 1.5 }}>
+                      {"\uD83D\uDCA7"} Use the eyedropper on the colour picker to match from your photo \u2014 it's right here so you can see what you're picking!
+                    </p>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
                   <input
                     type="color" value={newColour.hex}
@@ -883,6 +951,192 @@ export default function App() {
         {/* ═══ BUILD OUTFIT ═══ */}
         {view === "outfit" && (
           <div>
+            {/* Saved Outfits — lozenges at top */}
+            {savedOutfits.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <h3 style={{ fontSize: 13, color: "#c4956a", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
+                    {"👗"} Saved Outfits ({savedOutfits.length})
+                  </h3>
+                </div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                  <select value={outfitFilter.vibe} onChange={e => setOutfitFilter(f => ({ ...f, vibe: e.target.value }))} style={{ ...selectStyle, flex: "none", minWidth: 100 }}>
+                    <option value="All">All Vibes</option>
+                    {VIBES.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <select value={outfitFilter.weather} onChange={e => setOutfitFilter(f => ({ ...f, weather: e.target.value }))} style={{ ...selectStyle, flex: "none", minWidth: 100 }}>
+                    <option value="All">All Weather</option>
+                    {WEATHERS.map(w => <option key={w} value={w}>{WEATHER_EMOJI[w]} {w}</option>)}
+                  </select>
+                </div>
+                <div style={{
+                  display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8,
+                  WebkitOverflowScrolling: "touch",
+                }}>
+                  {filteredOutfits.map(o => (
+                    <button key={o.id} onClick={() => setExpandedOutfit(expandedOutfit === o.id ? null : o.id)}
+                      style={{
+                        flexShrink: 0, padding: "8px 14px", borderRadius: 20,
+                        background: expandedOutfit === o.id ? "rgba(196,149,106,0.2)" : "rgba(196,149,106,0.06)",
+                        border: `1px solid ${expandedOutfit === o.id ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.12)"}`,
+                        color: expandedOutfit === o.id ? "#c4956a" : "#8a7a6a",
+                        fontSize: 12, fontFamily: "inherit", cursor: "pointer",
+                        letterSpacing: 0.5, transition: "all 0.3s ease",
+                        display: "flex", alignItems: "center", gap: 6,
+                      }}
+                    >
+                      {o.name}
+                      <span style={{ display: "flex", gap: 2 }}>
+                        {o.items.slice(0, 4).map(item => (
+                          <span key={item.id} style={{
+                            width: 8, height: 8, borderRadius: "50%", display: "inline-block",
+                            background: getColourObj(item.colour).hex,
+                            border: "1px solid rgba(255,255,255,0.1)",
+                          }} />
+                        ))}
+                        {o.items.length > 4 && <span style={{ fontSize: 9, color: "#6a5a4a" }}>+{o.items.length - 4}</span>}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {filteredOutfits.length === 0 && (
+                  <p style={{ fontSize: 11, color: "#5a4a3a", textAlign: "center", fontStyle: "italic", margin: "8px 0 0" }}>
+                    No outfits match those filters {"🌀"}
+                  </p>
+                )}
+                {/* Expanded outfit detail */}
+                {expandedOutfit && (() => {
+                  const o = savedOutfits.find(x => x.id === expandedOutfit);
+                  if (!o) return null;
+                  if (editingOutfitId === o.id) {
+                    return (
+                      <div style={{
+                        background: "rgba(196,149,106,0.06)",
+                        border: "1px solid rgba(196,149,106,0.2)",
+                        borderRadius: 12, padding: 16, marginTop: 10,
+                        animation: "fadeIn 0.3s ease",
+                      }}>
+                        <label style={labelStyle}>Outfit Name</label>
+                        <input type="text" value={outfitForm.name}
+                          onChange={e => setOutfitForm(prev => ({ ...prev, name: e.target.value }))}
+                          placeholder={o.name} style={inputStyle}
+                        />
+                        <label style={labelStyle}>Outfit Vibes</label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                          {VIBES.map(vibe => (
+                            <button key={vibe} onClick={() => setOutfitForm(prev => ({
+                              ...prev, vibes: prev.vibes.includes(vibe) ? prev.vibes.filter(v => v !== vibe) : [...prev.vibes, vibe],
+                            }))} style={{
+                              ...chipStyle,
+                              background: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
+                              borderColor: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
+                              color: outfitForm.vibes.includes(vibe) ? "#c4956a" : "#8a7a6a",
+                            }}>{vibe}</button>
+                          ))}
+                        </div>
+                        <label style={labelStyle}>Good for which weather?</label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                          {WEATHERS.map(w => (
+                            <button key={w} onClick={() => setOutfitForm(prev => ({
+                              ...prev, weatherTags: prev.weatherTags.includes(w) ? prev.weatherTags.filter(t => t !== w) : [...prev.weatherTags, w],
+                            }))} style={{
+                              ...chipStyle,
+                              background: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.2)" : "rgba(196,149,106,0.06)",
+                              borderColor: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.35)" : "rgba(196,149,106,0.1)",
+                              color: outfitForm.weatherTags.includes(w) ? "#7a9ab0" : "#8a7a6a",
+                            }}>{WEATHER_EMOJI[w]} {w}</button>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={saveEditOutfit} style={{
+                            flex: 1, padding: 12,
+                            background: "linear-gradient(135deg, rgba(196,149,106,0.3), rgba(155,27,48,0.2))",
+                            border: "1px solid rgba(196,149,106,0.3)", borderRadius: 12,
+                            color: "#c4956a", fontSize: 12, fontFamily: "inherit",
+                            letterSpacing: 1, textTransform: "uppercase", cursor: "pointer",
+                          }}>Save Changes {"✨"}</button>
+                          <button onClick={cancelEditOutfit} style={{
+                            padding: "12px 16px",
+                            background: "rgba(196,149,106,0.06)",
+                            border: "1px solid rgba(196,149,106,0.1)", borderRadius: 12,
+                            color: "#8a7a6a", fontSize: 12, fontFamily: "inherit", cursor: "pointer",
+                          }}>Cancel</button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{
+                      background: "rgba(196,149,106,0.06)",
+                      border: "1px solid rgba(196,149,106,0.15)",
+                      borderRadius: 12, padding: 16, marginTop: 10,
+                      animation: "fadeIn 0.3s ease",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <p style={{ fontSize: 15, color: "#d4c4b0", margin: 0, fontWeight: 600 }}>{o.name}</p>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => startEditOutfit(o)} style={{
+                            background: "rgba(0,0,0,0.4)", border: "none",
+                            color: "#8a7a6a", width: 24, height: 24,
+                            borderRadius: "50%", fontSize: 11, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>{"✎"}</button>
+                          <button onClick={() => requestDeleteOutfit(o.id)} style={{
+                            background: "rgba(0,0,0,0.4)", border: "none",
+                            color: "#8a7a6a", width: 24, height: 24,
+                            borderRadius: "50%", fontSize: 11, cursor: "pointer",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>{"×"}</button>
+                        </div>
+                      </div>
+                      {((o.vibes && o.vibes.length > 0) || (o.weatherTags && o.weatherTags.length > 0)) && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+                          {(o.vibes || []).map(v => (
+                            <span key={v} style={{
+                              fontSize: 9, padding: "2px 6px", borderRadius: 10,
+                              background: "rgba(196,149,106,0.15)", color: "#a08a70", letterSpacing: "0.5px",
+                            }}>{v}</span>
+                          ))}
+                          {(o.weatherTags || []).map(w => (
+                            <span key={w} style={{
+                              fontSize: 9, padding: "2px 6px", borderRadius: 10,
+                              background: "rgba(106,149,196,0.12)", color: "#7a9ab0", letterSpacing: "0.3px",
+                            }}>{WEATHER_EMOJI[w]} {w}</span>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {o.items.map(item => (
+                          <div key={item.id} style={{
+                            display: "flex", alignItems: "center", gap: 6,
+                            background: "rgba(196,149,106,0.1)", padding: "6px 10px",
+                            borderRadius: 16, fontSize: 11,
+                          }}>
+                            {item.photo ? (
+                              <div style={{
+                                width: 20, height: 20, borderRadius: 4, flexShrink: 0,
+                                background: `url(${item.photo}) center/cover`,
+                                border: "1px solid rgba(196,149,106,0.2)",
+                              }} />
+                            ) : (
+                              <div style={{
+                                width: 10, height: 10, borderRadius: "50%",
+                                background: getColourObj(item.colour).hex,
+                                border: "1px solid rgba(255,255,255,0.1)",
+                              }} />
+                            )}
+                            <span style={{ color: "#d4c4b0" }}>{item.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <ColourScoreBar score={outfitColourScore(o.items)} />
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Current outfit being built */}
             {outfit.length > 0 && (
               <div style={{
                 background: "rgba(196,149,106,0.06)",
@@ -893,12 +1147,14 @@ export default function App() {
                   <h3 style={{ fontSize: 13, color: "#c4956a", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
                     Current Outfit
                   </h3>
-                  <button onClick={saveOutfit} style={{
-                    background: "rgba(196,149,106,0.2)",
-                    border: "1px solid rgba(196,149,106,0.3)",
-                    color: "#c4956a", padding: "6px 14px", borderRadius: 20,
-                    fontSize: 11, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1,
-                  }}>Save Outfit {"\uD83D\uDC96"}</button>
+                  {!showOutfitSave && (
+                    <button onClick={startSaveOutfit} style={{
+                      background: "rgba(196,149,106,0.2)",
+                      border: "1px solid rgba(196,149,106,0.3)",
+                      color: "#c4956a", padding: "6px 14px", borderRadius: 20,
+                      fontSize: 11, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1,
+                    }}>Save Outfit {"\uD83D\uDC96"}</button>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   {outfit.map(item => (
@@ -921,6 +1177,63 @@ export default function App() {
                   ))}
                 </div>
                 <ColourScoreBar score={outfitColourScore(outfit)} />
+
+                {/* Outfit save form */}
+                {showOutfitSave && (
+                  <div style={{
+                    borderTop: "1px solid rgba(196,149,106,0.15)",
+                    marginTop: 16, paddingTop: 16,
+                    animation: "fadeIn 0.3s ease",
+                  }}>
+                    <label style={labelStyle}>Name your outfit</label>
+                    <input type="text" value={outfitForm.name}
+                      onChange={e => setOutfitForm(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder={`Outfit ${savedOutfits.length + 1}`}
+                      style={inputStyle}
+                    />
+                    <label style={labelStyle}>Outfit Vibes</label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                      {VIBES.map(vibe => (
+                        <button key={vibe} onClick={() => setOutfitForm(prev => ({
+                          ...prev, vibes: prev.vibes.includes(vibe) ? prev.vibes.filter(v => v !== vibe) : [...prev.vibes, vibe],
+                        }))} style={{
+                          ...chipStyle,
+                          background: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
+                          borderColor: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
+                          color: outfitForm.vibes.includes(vibe) ? "#c4956a" : "#8a7a6a",
+                        }}>{vibe}</button>
+                      ))}
+                    </div>
+                    <label style={labelStyle}>Good for which weather?</label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                      {WEATHERS.map(w => (
+                        <button key={w} onClick={() => setOutfitForm(prev => ({
+                          ...prev, weatherTags: prev.weatherTags.includes(w) ? prev.weatherTags.filter(t => t !== w) : [...prev.weatherTags, w],
+                        }))} style={{
+                          ...chipStyle,
+                          background: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.2)" : "rgba(196,149,106,0.06)",
+                          borderColor: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.35)" : "rgba(196,149,106,0.1)",
+                          color: outfitForm.weatherTags.includes(w) ? "#7a9ab0" : "#8a7a6a",
+                        }}>{WEATHER_EMOJI[w]} {w}</button>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={confirmSaveOutfit} style={{
+                        flex: 1, padding: 12,
+                        background: "linear-gradient(135deg, rgba(196,149,106,0.3), rgba(155,27,48,0.2))",
+                        border: "1px solid rgba(196,149,106,0.3)", borderRadius: 12,
+                        color: "#c4956a", fontSize: 12, fontFamily: "inherit",
+                        letterSpacing: 1, textTransform: "uppercase", cursor: "pointer",
+                      }}>Save {"\u2728"}</button>
+                      <button onClick={() => setShowOutfitSave(false)} style={{
+                        padding: "12px 16px",
+                        background: "rgba(196,149,106,0.06)",
+                        border: "1px solid rgba(196,149,106,0.1)", borderRadius: 12,
+                        color: "#8a7a6a", fontSize: 12, fontFamily: "inherit", cursor: "pointer",
+                      }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -945,40 +1258,6 @@ export default function App() {
               </>
             )}
 
-            {savedOutfits.length > 0 && (
-              <div style={{ marginTop: 30 }}>
-                <h3 style={{
-                  fontSize: 13, color: "#c4956a", letterSpacing: 2,
-                  textTransform: "uppercase", marginBottom: 12, fontWeight: 400,
-                }}>Saved Outfits</h3>
-                {savedOutfits.map(o => (
-                  <div key={o.id} style={{
-                    background: "rgba(196,149,106,0.04)",
-                    border: "1px solid rgba(196,149,106,0.1)",
-                    borderRadius: 12, padding: 12, marginBottom: 8,
-                    position: "relative",
-                  }}>
-                    <p style={{ fontSize: 13, color: "#d4c4b0", margin: "0 0 6px" }}>{o.name}</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {o.items.map(item => (
-                        <span key={item.id} style={{
-                          fontSize: 10, padding: "2px 8px",
-                          background: "rgba(196,149,106,0.1)",
-                          borderRadius: 10, color: "#a08a70",
-                        }}>{item.name}</span>
-                      ))}
-                    </div>
-                    <button onClick={() => requestDeleteOutfit(o.id)} style={{
-                      position: "absolute", top: 8, right: 8,
-                      background: "rgba(0,0,0,0.3)", border: "none",
-                      color: "#8a7a6a", width: 18, height: 18,
-                      borderRadius: "50%", fontSize: 9, cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>{"\u00D7"}</button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 

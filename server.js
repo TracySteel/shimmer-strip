@@ -105,6 +105,15 @@ app.post('/api/outfits', (req, res) => {
   res.json({ ok: true });
 });
 
+app.put('/api/outfits/:id', (req, res) => {
+  const data = readData();
+  const idx = data.outfits.findIndex(o => String(o.id) === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Outfit not found' });
+  data.outfits[idx] = { ...data.outfits[idx], ...req.body };
+  writeData(data);
+  res.json({ ok: true, outfit: data.outfits[idx] });
+});
+
 app.delete('/api/outfits/:id', (req, res) => {
   const data = readData();
   data.outfits = data.outfits.filter(o => String(o.id) !== req.params.id);

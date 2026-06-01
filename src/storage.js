@@ -126,6 +126,9 @@ export async function removeItemFromServer(id) {
 export async function addOutfitToServer(outfit) {
   return await apiPost('/outfits', outfit);
 }
+export async function updateOutfitOnServer(outfit) {
+  return await apiPut(`/outfits/${outfit.id}`, outfit);
+}
 export async function removeOutfitFromServer(id) {
   return await apiDelete(`/outfits/${id}`);
 }
