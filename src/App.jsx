@@ -249,6 +249,7 @@ export default function App() {
   const [expandedOutfit, setExpandedOutfit] = useState(null);
   const [outfitFilter, setOutfitFilter] = useState({ vibe: "All", weather: "All" });
   const [editingOutfitId, setEditingOutfitId] = useState(null);
+  const [outfitSourceFilter, setOutfitSourceFilter] = useState("All");
 
   // Custom colours
   const [customColours, setCustomColours] = useState(() => loadCustomColours());
@@ -391,6 +392,7 @@ export default function App() {
     const newOutfit = {
       name, items: [...outfit], id: Date.now(),
       vibes: outfitForm.vibes, weatherTags: outfitForm.weatherTags,
+      source: "manual",
     };
     setSavedOutfits(prev => [...prev, newOutfit]);
     showToast(`${name} saved! \uD83D\uDC96`);
@@ -523,6 +525,10 @@ export default function App() {
   const filteredOutfits = savedOutfits.filter(o => {
     if (outfitFilter.vibe !== "All" && !(o.vibes && o.vibes.includes(outfitFilter.vibe))) return false;
     if (outfitFilter.weather !== "All" && !(o.weatherTags && o.weatherTags.includes(outfitFilter.weather))) return false;
+    if (outfitSourceFilter !== "All") {
+      const src = o.source || "manual";
+      if (outfitSourceFilter !== src) return false;
+    }
     return true;
   });
 
@@ -599,6 +605,7 @@ export default function App() {
           { id: "wardrobe", label: "Wardrobe", icon: "\uD83C\uDF00" },
           { id: "add", label: "Add", icon: "\u2728" },
           { id: "outfit", label: "Build Outfit", icon: "\uD83D\uDC57" },
+          { id: "savedOutfits", label: "Saved", icon: "\uD83D\uDC96" },
           { id: "surpriseSetup", label: "Surprise Me", icon: "\uD83D\uDC0C" },
         ].map(tab => (
           <button
@@ -1258,6 +1265,286 @@ export default function App() {
               </>
             )}
 
+          </div>
+        )}
+
+        {/* ═══ SAVED OUTFITS ═══ */}
+        {view === "savedOutfits" && (
+          <div>
+            {savedOutfits.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 20px", opacity: 0.6 }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>{"👗"}</div>
+                <p style={{ fontSize: 16, color: "#8a7a6a", marginBottom: 8 }}>
+                  No outfits saved yet
+                </p>
+                <p style={{ fontSize: 13, color: "#6a5a4a" }}>
+                  Build one in <strong style={{ color: "#c4956a" }}>{"👗"} Build Outfit</strong> or let the snails surprise you!
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Source filter */}
+                <div style={{
+                  display: "flex", gap: 6, overflowX: "auto", paddingBottom: 10,
+                  marginBottom: 12, WebkitOverflowScrolling: "touch",
+                }}>
+                  {[
+                    { id: "All", label: "All Outfits", icon: "" },
+                    { id: "manual", label: "My Outfits", icon: "✨" },
+                    { id: "claude", label: "Claude's Choice", icon: "🩵" },
+                    { id: "chaos", label: "Chaos", icon: "🌀" },
+                    { id: "surprise", label: "Snail's Pick", icon: "🐌" },
+                  ].map(f => (
+                    <button key={f.id} onClick={() => setOutfitSourceFilter(f.id)} style={{
+                      flexShrink: 0, padding: "8px 14px", borderRadius: 20,
+                      background: outfitSourceFilter === f.id
+                        ? f.id === "claude" ? "rgba(122,176,196,0.2)"
+                        : f.id === "chaos" ? "rgba(232,107,107,0.15)"
+                        : "rgba(196,149,106,0.2)"
+                        : "rgba(196,149,106,0.06)",
+                      border: `1px solid ${outfitSourceFilter === f.id
+                        ? f.id === "claude" ? "rgba(122,176,196,0.4)"
+                        : f.id === "chaos" ? "rgba(232,107,107,0.3)"
+                        : "rgba(196,149,106,0.3)"
+                        : "rgba(196,149,106,0.1)"}`,
+                      color: outfitSourceFilter === f.id
+                        ? f.id === "claude" ? "#7ab0c4"
+                        : f.id === "chaos" ? "#e86b6b"
+                        : "#c4956a"
+                        : "#8a7a6a",
+                      fontSize: 11, fontFamily: "inherit", cursor: "pointer",
+                      letterSpacing: 0.5, transition: "all 0.3s ease",
+                    }}>{f.icon} {f.label}</button>
+                  ))}
+                </div>
+
+                {/* Vibe/weather filters */}
+                <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+                  <select value={outfitFilter.vibe} onChange={e => setOutfitFilter(f => ({ ...f, vibe: e.target.value }))} style={{ ...selectStyle, flex: "none", minWidth: 100 }}>
+                    <option value="All">All Vibes</option>
+                    {VIBES.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <select value={outfitFilter.weather} onChange={e => setOutfitFilter(f => ({ ...f, weather: e.target.value }))} style={{ ...selectStyle, flex: "none", minWidth: 100 }}>
+                    <option value="All">All Weather</option>
+                    {WEATHERS.map(w => <option key={w} value={w}>{WEATHER_EMOJI[w]} {w}</option>)}
+                  </select>
+                </div>
+
+                <p style={{ fontSize: 11, color: "#6a5a4a", marginBottom: 14 }}>
+                  {filteredOutfits.length} of {savedOutfits.length} outfits
+                </p>
+
+                {filteredOutfits.length === 0 && (
+                  <p style={{ fontSize: 12, color: "#5a4a3a", textAlign: "center", fontStyle: "italic", padding: "30px 0" }}>
+                    No outfits match those filters {"🌀"}
+                  </p>
+                )}
+
+                {/* Outfit cards */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {filteredOutfits.map((o, idx) => {
+                    const isExpanded = expandedOutfit === o.id;
+                    const src = o.source || "manual";
+                    const sourceBadge = {
+                      claude: { icon: "🩵", label: "Claude's Choice", color: "#7ab0c4" },
+                      chaos: { icon: "🌀", label: "Chaos Mode", color: "#e86b6b" },
+                      surprise: { icon: "🐌", label: "Snail's Pick", color: "#c4956a" },
+                      manual: { icon: "✨", label: "My Outfit", color: "#c4956a" },
+                      nail_this: { icon: "👔", label: "Nailed It", color: "#c4956a" },
+                    }[src] || { icon: "✨", label: "Outfit", color: "#c4956a" };
+
+                    return (
+                      <div key={o.id} style={{
+                        background: "rgba(196,149,106,0.04)",
+                        border: `1px solid ${isExpanded ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.1)"}`,
+                        borderRadius: 16, overflow: "hidden",
+                        transition: "all 0.3s ease",
+                        animation: `fadeSlideIn 0.4s ease ${idx * 0.06}s both`,
+                      }}>
+                        {/* Collapsed header — always visible */}
+                        <div
+                          onClick={() => setExpandedOutfit(isExpanded ? null : o.id)}
+                          style={{
+                            padding: "14px 16px", cursor: "pointer",
+                            display: "flex", alignItems: "center", gap: 12,
+                          }}
+                        >
+                          {/* Colour dots stack */}
+                          <div style={{
+                            display: "flex", flexDirection: "column", gap: 2,
+                            minWidth: 20, alignItems: "center",
+                          }}>
+                            {o.items.slice(0, 4).map(item => (
+                              <div key={item.id} style={{
+                                width: 14, height: 14, borderRadius: "50%",
+                                background: getColourObj(item.colour).hex,
+                                border: "1px solid rgba(255,255,255,0.1)",
+                              }} />
+                            ))}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                              <p style={{ fontSize: 15, color: "#d4c4b0", margin: 0, fontWeight: 600 }}>{o.name}</p>
+                              <span style={{
+                                fontSize: 9, padding: "2px 8px", borderRadius: 10,
+                                background: `${sourceBadge.color}20`,
+                                color: sourceBadge.color, letterSpacing: 0.5,
+                              }}>{sourceBadge.icon} {sourceBadge.label}</span>
+                            </div>
+                            <p style={{ fontSize: 11, color: "#8a7a6a", margin: 0 }}>
+                              {o.items.length} pieces {o.items.map(i => i.category).filter((v, i, a) => a.indexOf(v) === i).join(" · ")}
+                            </p>
+                          </div>
+                          <span style={{
+                            fontSize: 14, color: "#6a5a4a",
+                            transform: isExpanded ? "rotate(180deg)" : "rotate(0)",
+                            transition: "transform 0.3s ease",
+                          }}>{"▾"}</span>
+                        </div>
+
+                        {/* Expanded content — photos & details */}
+                        {isExpanded && (
+                          <div style={{
+                            padding: "0 16px 16px",
+                            borderTop: "1px solid rgba(196,149,106,0.1)",
+                            animation: "fadeIn 0.3s ease",
+                          }}>
+                            {/* Edit mode */}
+                            {editingOutfitId === o.id ? (
+                              <div style={{ paddingTop: 14 }}>
+                                <label style={labelStyle}>Outfit Name</label>
+                                <input type="text" value={outfitForm.name}
+                                  onChange={e => setOutfitForm(prev => ({ ...prev, name: e.target.value }))}
+                                  placeholder={o.name} style={inputStyle}
+                                />
+                                <label style={labelStyle}>Outfit Vibes</label>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                                  {VIBES.map(vibe => (
+                                    <button key={vibe} onClick={() => setOutfitForm(prev => ({
+                                      ...prev, vibes: prev.vibes.includes(vibe) ? prev.vibes.filter(v => v !== vibe) : [...prev.vibes, vibe],
+                                    }))} style={{
+                                      ...chipStyle,
+                                      background: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
+                                      borderColor: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
+                                      color: outfitForm.vibes.includes(vibe) ? "#c4956a" : "#8a7a6a",
+                                    }}>{vibe}</button>
+                                  ))}
+                                </div>
+                                <label style={labelStyle}>Good for which weather?</label>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                                  {WEATHERS.map(w => (
+                                    <button key={w} onClick={() => setOutfitForm(prev => ({
+                                      ...prev, weatherTags: prev.weatherTags.includes(w) ? prev.weatherTags.filter(t => t !== w) : [...prev.weatherTags, w],
+                                    }))} style={{
+                                      ...chipStyle,
+                                      background: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.2)" : "rgba(196,149,106,0.06)",
+                                      borderColor: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.35)" : "rgba(196,149,106,0.1)",
+                                      color: outfitForm.weatherTags.includes(w) ? "#7a9ab0" : "#8a7a6a",
+                                    }}>{WEATHER_EMOJI[w]} {w}</button>
+                                  ))}
+                                </div>
+                                <div style={{ display: "flex", gap: 8 }}>
+                                  <button onClick={saveEditOutfit} style={{
+                                    flex: 1, padding: 12,
+                                    background: "linear-gradient(135deg, rgba(196,149,106,0.3), rgba(155,27,48,0.2))",
+                                    border: "1px solid rgba(196,149,106,0.3)", borderRadius: 12,
+                                    color: "#c4956a", fontSize: 12, fontFamily: "inherit",
+                                    letterSpacing: 1, textTransform: "uppercase", cursor: "pointer",
+                                  }}>Save Changes {"✨"}</button>
+                                  <button onClick={cancelEditOutfit} style={{
+                                    padding: "12px 16px",
+                                    background: "rgba(196,149,106,0.06)",
+                                    border: "1px solid rgba(196,149,106,0.1)", borderRadius: 12,
+                                    color: "#8a7a6a", fontSize: 12, fontFamily: "inherit", cursor: "pointer",
+                                  }}>Cancel</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Item photo grid — stylist laying clothes on the bed */}
+                                <div style={{
+                                  display: "grid",
+                                  gridTemplateColumns: `repeat(${Math.min(o.items.length, 3)}, 1fr)`,
+                                  gap: 10, padding: "14px 0",
+                                }}>
+                                  {o.items.map(item => (
+                                    <div key={item.id} style={{ textAlign: "center" }}>
+                                      {item.photo ? (
+                                        <img src={item.photo} alt={item.name} style={{
+                                          width: "100%", aspectRatio: "1", objectFit: "cover",
+                                          borderRadius: 10, border: "1px solid rgba(196,149,106,0.2)",
+                                        }} />
+                                      ) : (
+                                        <div style={{
+                                          width: "100%", aspectRatio: "1", borderRadius: 10,
+                                          background: getColourObj(item.colour).hex, opacity: 0.7,
+                                          border: "1px solid rgba(255,255,255,0.05)",
+                                        }} />
+                                      )}
+                                      <p style={{ fontSize: 10, color: "#a08a70", margin: "6px 0 0", fontWeight: 600 }}>{item.name}</p>
+                                      <p style={{ fontSize: 9, color: "#6a5a4a", margin: "1px 0 0", textTransform: "uppercase", letterSpacing: 0.5 }}>{item.category}</p>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Tags */}
+                                {((o.vibes && o.vibes.length > 0) || (o.weatherTags && o.weatherTags.length > 0)) && (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+                                    {(o.vibes || []).map(v => (
+                                      <span key={v} style={{
+                                        fontSize: 9, padding: "2px 6px", borderRadius: 10,
+                                        background: "rgba(196,149,106,0.15)", color: "#a08a70", letterSpacing: "0.5px",
+                                      }}>{v}</span>
+                                    ))}
+                                    {(o.weatherTags || []).map(w => (
+                                      <span key={w} style={{
+                                        fontSize: 9, padding: "2px 6px", borderRadius: 10,
+                                        background: "rgba(106,149,196,0.12)", color: "#7a9ab0", letterSpacing: "0.3px",
+                                      }}>{WEATHER_EMOJI[w]} {w}</span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Notes */}
+                                {o.notes && (
+                                  <p style={{
+                                    fontSize: 11, color: "#8a7a6a", fontStyle: "italic",
+                                    margin: "0 0 10px", lineHeight: 1.5,
+                                    padding: "8px 10px", borderRadius: 8,
+                                    background: "rgba(196,149,106,0.04)",
+                                    borderLeft: "2px solid rgba(196,149,106,0.2)",
+                                  }}>{o.notes}</p>
+                                )}
+
+                                <ColourScoreBar score={outfitColourScore(o.items)} />
+
+                                {/* Actions */}
+                                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                                  <button onClick={() => startEditOutfit(o)} style={{
+                                    flex: 1, padding: "8px 14px",
+                                    background: "rgba(196,149,106,0.08)",
+                                    border: "1px solid rgba(196,149,106,0.15)", borderRadius: 10,
+                                    color: "#8a7a6a", fontSize: 11, fontFamily: "inherit",
+                                    cursor: "pointer", letterSpacing: 0.5,
+                                  }}>{"✎"} Edit</button>
+                                  <button onClick={() => requestDeleteOutfit(o.id)} style={{
+                                    padding: "8px 14px",
+                                    background: "rgba(155,27,48,0.06)",
+                                    border: "1px solid rgba(155,27,48,0.12)", borderRadius: 10,
+                                    color: "#8a6a6a", fontSize: 11, fontFamily: "inherit",
+                                    cursor: "pointer", letterSpacing: 0.5,
+                                  }}>{"×"} Remove</button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         )}
 
