@@ -3,6 +3,9 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { createMcpServer } from './src/mcp.js';
+import { getWeather } from './src/weather-server.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -141,6 +144,41 @@ app.delete('/api/colours/:name', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Weather API (also used by MCP) ──
+app.get('/api/weather', async (req, res) => {
+  const weather = await getWeather();
+  if (weather) {
+    res.json(weather);
+  } else {
+    res.status(503).json({ error: 'Weather data unavailable' });
+  }
+});
+
+// ── MCP Server (Streamable HTTP — stateless) ──
+// Lets Claude query the wardrobe, check weather, and suggest outfits.
+app.post('/mcp', async (req, res) => {
+  try {
+    const server = createMcpServer(readData, writeData, getWeather);
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on('close', () => { transport.close(); server.close(); });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error('MCP error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ jsonrpc: '2.0', error: { code: -32603, message: 'Internal error' }, id: null });
+    }
+  }
+});
+
+// MCP: GET and DELETE not needed in stateless mode
+app.get('/mcp', (req, res) => {
+  res.status(405).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed in stateless mode' }, id: null });
+});
+app.delete('/mcp', (req, res) => {
+  res.status(405).json({ jsonrpc: '2.0', error: { code: -32000, message: 'Method not allowed in stateless mode' }, id: null });
+});
+
 // SPA fallback — serve index.html for any non-API route
 app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
@@ -149,5 +187,6 @@ app.get('/{*splat}', (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n  🐌✨ The Shimmer Strip is running on port ${PORT}`);
   console.log(`  📂 Data stored in: ${DATA_FILE}`);
+  console.log(`  🩵 MCP endpoint: http://localhost:${PORT}/mcp`);
   console.log(`  🌐 Open http://localhost:${PORT}\n`);
 });
