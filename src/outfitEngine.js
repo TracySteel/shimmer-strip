@@ -93,8 +93,13 @@ export function generateSmartOutfit(items, params = {}) {
 
   const weatherConfig = WEATHER_CONFIG[weather] || WEATHER_CONFIG["Mild"];
 
+  // Exclude pyjamas/nightwear unless specifically in cosy/staying-in vibe
+  const cosyVibes = ["Cosy Cocoon", "Codeineificated", "Day Off Staying In"];
+  const allowPyjamas = vibe && cosyVibes.includes(vibe);
+  const eligible = allowPyjamas ? items : items.filter(i => i.category !== "Pyjamas");
+
   // Filter by weather suitability tags if items have them
-  let weatherFiltered = items;
+  let weatherFiltered = eligible;
   if (weather) {
     const weatherTagged = items.filter(i => i.weatherTags && i.weatherTags.includes(weather));
     // Use weather-tagged items if we have enough, otherwise fall back to all

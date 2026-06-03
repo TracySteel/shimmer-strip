@@ -117,16 +117,26 @@ function pickWeighted(candidates, existing) {
 }
 
 function suggestOutfitFromItems(items, options = {}) {
-  const { weather, vibe, crimsonMoon, chaos } = options;
+  const { weather, vibe, crimsonMoon, chaos, excludeLocations } = options;
   if (items.length < 2) return null;
+
+  // Exclude pyjamas unless specifically in cosy/staying-in vibe
+  const cosyVibes = ["Cosy Cocoon", "Codeineificated", "Day Off Staying In"];
+  const allowPyjamas = vibe && cosyVibes.includes(vibe);
+  let eligible = allowPyjamas ? items : items.filter(i => i.category !== "Pyjamas");
+
+  // Exclude items by location (e.g. Fishcat sleeping)
+  if (excludeLocations && excludeLocations.length > 0) {
+    eligible = eligible.filter(i => !i.location || !excludeLocations.includes(i.location));
+  }
 
   // Chaos mode: random items but valid structure
   if (chaos) {
-    return generateChaosOutfit(items);
+    return generateChaosOutfit(eligible);
   }
 
   // Filter by weather tag if provided
-  let pool = [...items];
+  let pool = [...eligible];
   if (weather) {
     const tagged = pool.filter(i => i.weatherTags && i.weatherTags.includes(weather));
     if (tagged.length >= 3) pool = tagged;
@@ -338,8 +348,13 @@ export function createMcpServer(readData, writeData, getWeather) {
       },
       {
         name: "get_weather",
-        description: "Get current weather in Milton Keynes with outfit-relevant summaries (temperature, rain, suggested weather tag for outfit filtering).",
-        inputSchema: { type: "object", properties: {} },
+        description: "Get weather in Milton Keynes with outfit-relevant summaries. Supports 'today' (live conditions) or 'tomorrow' (forecast for evening outfit planning while Fishcat is awake and all wardrobes accessible).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            day: { type: "string", enum: ["today", "tomorrow"], description: "today = current conditions (default). tomorrow = forecast for next day." },
+          },
+        },
       },
       {
         name: "suggest_outfit",
@@ -355,6 +370,11 @@ export function createMcpServer(readData, writeData, getWeather) {
             weather: { type: "string", enum: ["Hot", "Warm", "Mild", "Cold", "Rainy"], description: "Override weather tag (otherwise uses live weather)" },
             vibe: { type: "string", description: "Filter items by vibe tag" },
             crimsonMoon: { type: "boolean", description: "Comfort-first mode — prioritises cosy items" },
+            excludeLocations: {
+              type: "array", items: { type: "string" },
+              description: "Locations to exclude (e.g. [\"Fishcat's Wardrobe\"] when Fishcat is sleeping). Known locations: Flumpasaurus Guarded Basket, Jumpers Box, Six-Drawer Chest, Skylight Tallboy, Three-Drawer Chest, Spiral Cocoon Door, Carved Chest, Bag Basket, Shoe Storage, Tanks Tubes & Vests Basket, Fishcat's Wardrobe",
+            },
+            day: { type: "string", enum: ["today", "tomorrow"], description: "Use today's or tomorrow's weather forecast. Default: today" },
           },
         },
       },
@@ -374,7 +394,7 @@ export function createMcpServer(readData, writeData, getWeather) {
             weatherTags: { type: "array", items: { type: "string" }, description: "Weather tags" },
             source: {
               type: "string",
-              enum: ["claude", "manual", "chaos", "surprise"],
+              enum: ["claude", "manual", "chaos", "snail", "smart"],
               description: "How this outfit was created",
             },
             notes: { type: "string", description: "Optional notes about the outfit" },
@@ -438,7 +458,7 @@ export function createMcpServer(readData, writeData, getWeather) {
       }
 
       case "get_weather": {
-        const weather = await getWeather();
+        const weather = await getWeather(args?.day || "today");
         if (!weather) {
           return { content: [{ type: "text", text: "Weather data unavailable — Open-Meteo might be down. You can still suggest outfits using manual weather tags." }] };
         }
@@ -449,10 +469,10 @@ export function createMcpServer(readData, writeData, getWeather) {
         const data = readData();
         const items = data.items || [];
 
-        // Determine weather tag
+        // Determine weather tag — support "tomorrow" for evening planning
         let weatherTag = args?.weather;
         if (!weatherTag) {
-          const weather = await getWeather();
+          const weather = await getWeather(args?.day || "today");
           if (weather) weatherTag = weather.suggestedWeatherTag;
         }
 
@@ -461,6 +481,7 @@ export function createMcpServer(readData, writeData, getWeather) {
           vibe: args?.vibe || null,
           crimsonMoon: args?.crimsonMoon || false,
           chaos: args?.mode === "chaos",
+          excludeLocations: args?.excludeLocations || [],
         });
 
         if (!result) {

@@ -146,7 +146,7 @@ app.delete('/api/colours/:name', (req, res) => {
 
 // ── Weather API (also used by MCP) ──
 app.get('/api/weather', async (req, res) => {
-  const weather = await getWeather();
+  const weather = await getWeather(req.query.day || "today");
   if (weather) {
     res.json(weather);
   } else {

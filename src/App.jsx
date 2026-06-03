@@ -32,6 +32,42 @@ const SURPRISE_VIBES = [
   "Smart Occasion (Sad)", "Smart Occasion (Happy)",
 ];
 
+const LOCATIONS = [
+  "Flumpasaurus Guarded Basket", "Jumpers Box", "Six-Drawer Chest",
+  "Skylight Tallboy", "Three-Drawer Chest", "Spiral Cocoon Door",
+  "Carved Chest", "Bag Basket", "Shoe Storage",
+  "Tanks Tubes & Vests Basket", "Fishcat's Wardrobe",
+];
+
+const FISHCAT_BLOCKED = ["Fishcat's Wardrobe"];
+
+const SNAIL_NAMES = [
+  "The Audacity", "Hold My Prosecco", "The Snail Has Spoken",
+  "Trust The Shell", "Slime & Shine", "Spiral Intentions",
+  "Shell Yeah", "Slow Fashion", "The Gastropod Glow",
+  "Snail Mail Special", "Trail Blazer", "Shimmer Slither",
+  "The Shell Game", "Spiral Instinct", "The Slow Burn",
+  "Antenna Approved", "The Mucus Muse", "Shell Shocked",
+  "Gastropod Glamour", "Slime Time", "The Spiral Decides",
+];
+
+const CHAOS_NAMES = [
+  "Chaos Theory", "The Algorithm Dared", "Colour Crime Scene",
+  "Fashion Emergency", "The Eyes Need Sunglasses", "Wardrobe Malfunction",
+  "Controlled Explosion", "Beautiful Disaster", "Chaos Couture",
+  "The Spiral Snapped", "Unbothered Unmatched", "Hot Mess Express",
+  "Aggressive Sparkle", "The Audible Gasp", "Prosecco Fuelled",
+];
+
+function pickSnailName() {
+  return SNAIL_NAMES[Math.floor(Math.random() * SNAIL_NAMES.length)];
+}
+
+function pickChaosName() {
+  return CHAOS_NAMES[Math.floor(Math.random() * CHAOS_NAMES.length)] +
+    (Math.random() > 0.5 ? ` #${Math.floor(Math.random() * 99) + 1}` : "");
+}
+
 const spiralPath = (cx, cy, r, turns) => {
   let d = "";
   for (let i = 0; i <= turns * 360; i += 2) {
@@ -167,6 +203,12 @@ function ItemCard({ item, onRemove, onEdit, onSelect, selected, showSelect, idx 
       <div style={{ marginTop: 4, fontSize: 10, color: "#6a5a4a" }}>
         {"\u2622\uFE0F".repeat(item.apocalypseRating)}{"\u00B7".repeat(5 - item.apocalypseRating)}
       </div>
+      {item.location && (
+        <p style={{
+          fontSize: 9, color: "#5a4a3a", margin: "3px 0 0",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>{"\uD83D\uDCCD"} {item.location}</p>
+      )}
       {onEdit && (
         <button
           onClick={e => { e.stopPropagation(); onEdit(item); }}
@@ -260,7 +302,7 @@ export default function App() {
   // Add/edit item form
   const [editingItem, setEditingItem] = useState(null); // null = adding, item id = editing
   const [newItem, setNewItem] = useState({
-    name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3,
+    name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3, location: "",
   });
 
   // Load data from server on mount. Server is source of truth —
@@ -295,7 +337,7 @@ export default function App() {
     if (!newItem.name.trim()) { showToast("Give it a name, love! \uD83D\uDC96"); return; }
     const item = { ...newItem, id: Date.now(), dateAdded: new Date().toLocaleDateString() };
     setItems(prev => [...prev, item]); // optimistic
-    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
+    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3, location: "" });
     showToast(`${item.name} added to the wardrobe! \u2728`);
     setView("wardrobe");
     const ok = await addItemToServer(item);
@@ -315,6 +357,7 @@ export default function App() {
       weatherTags: item.weatherTags || [],
       photo: item.photo || null,
       apocalypseRating: item.apocalypseRating || 3,
+      location: item.location || "",
     });
     setView("add");
   };
@@ -324,7 +367,7 @@ export default function App() {
     const prevItem = items.find(i => i.id === editingItem);
     const updated = { ...newItem, id: editingItem, dateAdded: prevItem?.dateAdded };
     setItems(prev => prev.map(i => i.id === editingItem ? updated : i)); // optimistic
-    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
+    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3, location: "" });
     setEditingItem(null);
     showToast(`${updated.name} updated! \u2728`);
     setView("wardrobe");
@@ -337,7 +380,7 @@ export default function App() {
 
   const cancelEdit = () => {
     setEditingItem(null);
-    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
+    setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3, location: "" });
     setView("wardrobe");
   };
 
@@ -434,6 +477,25 @@ export default function App() {
     setOutfitForm({ name: "", vibes: [], weatherTags: [] });
   };
 
+  const saveSurpriseOutfit = async () => {
+    if (!surpriseResult || !surpriseResult.items.length) return;
+    const isChaos = surpriseResult.structure === "chaos";
+    const name = isChaos ? pickChaosName() : pickSnailName();
+    const source = isChaos ? "chaos" : "snail";
+    const newOutfit = {
+      name, items: [...surpriseResult.items], id: Date.now(),
+      vibes: [], weatherTags: surpriseWeather ? [surpriseWeather] : [],
+      source,
+    };
+    setSavedOutfits(prev => [...prev, newOutfit]);
+    showToast(`${isChaos ? "🌀" : "🐌"} "${name}" saved!`);
+    const ok = await addOutfitToServer(newOutfit);
+    if (!ok) {
+      setSavedOutfits(prev => prev.filter(o => o.id !== newOutfit.id));
+      showToast(`Couldn't save — server didn't respond 😿`);
+    }
+  };
+
   const requestDeleteOutfit = (id) => {
     const outfit = savedOutfits.find(o => o.id === id);
     setConfirmDelete({ id, name: outfit?.name || "this outfit", type: "outfit" });
@@ -527,7 +589,9 @@ export default function App() {
     if (outfitFilter.weather !== "All" && !(o.weatherTags && o.weatherTags.includes(outfitFilter.weather))) return false;
     if (outfitSourceFilter !== "All") {
       const src = o.source || "manual";
-      if (outfitSourceFilter !== src) return false;
+      if (outfitSourceFilter === "snail") {
+        if (src !== "snail" && src !== "surprise") return false;
+      } else if (outfitSourceFilter !== src) return false;
     }
     return true;
   });
@@ -613,7 +677,7 @@ export default function App() {
             onClick={() => {
               if (tab.id === "add" && editingItem) {
                 setEditingItem(null);
-                setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3 });
+                setNewItem({ name: "", category: "Top", colour: "Black", vibes: [], weatherTags: [], photo: null, apocalypseRating: 3, location: "" });
               }
               setView(tab.id);
             }}
@@ -902,6 +966,17 @@ export default function App() {
                 {newItem.apocalypseRating === 5 && "Would impress Mad Max"}
               </span>
             </div>
+
+            <label style={labelStyle}>Where does it live?</label>
+            <select value={newItem.location}
+              onChange={e => setNewItem(prev => ({ ...prev, location: e.target.value }))}
+              style={{ ...selectStyle, width: "100%", marginBottom: 20, flex: "none" }}
+            >
+              <option value="">Not set yet</option>
+              {LOCATIONS.map(loc => (
+                <option key={loc} value={loc}>{loc}{FISHCAT_BLOCKED.includes(loc) ? " 🐟💤" : ""}</option>
+              ))}
+            </select>
 
             <label style={labelStyle}>Photo (optional)</label>
             <div style={{ marginBottom: 24 }}>
@@ -1293,7 +1368,7 @@ export default function App() {
                     { id: "manual", label: "My Outfits", icon: "✨" },
                     { id: "claude", label: "Claude's Choice", icon: "🩵" },
                     { id: "chaos", label: "Chaos", icon: "🌀" },
-                    { id: "surprise", label: "Snail's Pick", icon: "🐌" },
+                    { id: "snail", label: "Snail's Pick", icon: "🐌" },
                   ].map(f => (
                     <button key={f.id} onClick={() => setOutfitSourceFilter(f.id)} style={{
                       flexShrink: 0, padding: "8px 14px", borderRadius: 20,
@@ -1348,6 +1423,7 @@ export default function App() {
                     const sourceBadge = {
                       claude: { icon: "🩵", label: "Claude's Choice", color: "#7ab0c4" },
                       chaos: { icon: "🌀", label: "Chaos Mode", color: "#e86b6b" },
+                      snail: { icon: "🐌", label: "Snail's Pick", color: "#c4956a" },
                       surprise: { icon: "🐌", label: "Snail's Pick", color: "#c4956a" },
                       manual: { icon: "✨", label: "My Outfit", color: "#c4956a" },
                       nail_this: { icon: "👔", label: "Nailed It", color: "#c4956a" },
@@ -1746,17 +1822,28 @@ export default function App() {
 
                 <ColourScoreBar score={surpriseResult.colourScore} />
 
-                <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 24 }}>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 24, flexWrap: "wrap" }}>
                   <button onClick={() => setView("surpriseSetup")} style={{
-                    padding: "12px 24px",
+                    padding: "12px 20px",
                     background: "rgba(196,149,106,0.1)",
                     border: "1px solid rgba(196,149,106,0.2)",
                     borderRadius: 24, color: "#8a7a6a", fontSize: 12,
                     fontFamily: "inherit", letterSpacing: 1,
                     textTransform: "uppercase", cursor: "pointer",
                   }}>{"\u2190"} Settings</button>
+                  <button onClick={saveSurpriseOutfit} style={{
+                    padding: "12px 22px",
+                    background: surpriseResult.structure === "chaos"
+                      ? "rgba(155,27,48,0.15)" : "rgba(196,149,106,0.2)",
+                    border: `1px solid ${surpriseResult.structure === "chaos"
+                      ? "rgba(155,27,48,0.25)" : "rgba(196,149,106,0.3)"}`,
+                    borderRadius: 24,
+                    color: surpriseResult.structure === "chaos" ? "#e86b6b" : "#c4956a",
+                    fontSize: 12, fontFamily: "inherit", letterSpacing: 1,
+                    textTransform: "uppercase", cursor: "pointer",
+                  }}>{surpriseResult.structure === "chaos" ? "\uD83D\uDD25 Save This" : "\uD83D\uDC0C Save This"}</button>
                   <button onClick={generateSurprise} style={{
-                    padding: "12px 28px",
+                    padding: "12px 22px",
                     background: surpriseResult.structure === "chaos"
                       ? "rgba(155,27,48,0.2)" : "rgba(196,149,106,0.15)",
                     border: `1px solid ${surpriseResult.structure === "chaos"
