@@ -251,9 +251,58 @@ export function generateSmartOutfit(items, params = {}) {
 export function generateChaosOutfit(items) {
   if (items.length < 2) return null;
 
-  const count = 2 + Math.floor(Math.random() * Math.min(5, items.length - 1));
-  const shuffled = [...items].sort(() => Math.random() - 0.5);
-  const outfit = shuffled.slice(0, count);
+  // Exclude pyjamas from chaos too — chaos colours, not chaos nightwear
+  const eligible = items.filter(i => i.category !== "Pyjamas");
+
+  // Chaos means chaos COLOURS, not chaos structure — still need a valid outfit!
+  const tops = eligible.filter(i => TOPS.includes(i.category));
+  const bottoms = eligible.filter(i => BOTTOMS.includes(i.category));
+  const fullBody = eligible.filter(i => FULL_BODY.includes(i.category));
+  const shoes = eligible.filter(i => i.category === "Shoes");
+  const layers = eligible.filter(i => LAYERS.includes(i.category));
+  const accessories = eligible.filter(i => ACCESSORIES.includes(i.category) && i.category !== "Shoes");
+
+  let outfit = [];
+
+  // Core structure: full body OR top+bottom (random pick, ignoring colour harmony)
+  if (fullBody.length > 0 && tops.length > 0 && bottoms.length > 0) {
+    if (Math.random() < 0.3) {
+      outfit.push(pickRandom(fullBody));
+    } else {
+      outfit.push(pickRandom(tops));
+      outfit.push(pickRandom(bottoms));
+    }
+  } else if (fullBody.length > 0) {
+    outfit.push(pickRandom(fullBody));
+  } else if (tops.length > 0 && bottoms.length > 0) {
+    outfit.push(pickRandom(tops));
+    outfit.push(pickRandom(bottoms));
+  } else {
+    // Fallback: just grab random non-duplicate-category items
+    const used = new Set();
+    const shuffled = [...eligible].sort(() => Math.random() - 0.5);
+    for (const item of shuffled) {
+      if (!used.has(item.category) && outfit.length < 4) {
+        outfit.push(item);
+        used.add(item.category);
+      }
+    }
+  }
+
+  // Shoes (always try)
+  if (shoes.length > 0) outfit.push(pickRandom(shoes));
+
+  // Maybe a layer
+  if (layers.length > 0 && Math.random() > 0.5) outfit.push(pickRandom(layers));
+
+  // Random accessories (1-2)
+  const shuffledAcc = [...accessories].sort(() => Math.random() - 0.5);
+  const accCount = Math.floor(Math.random() * 3); // 0, 1, or 2
+  for (let i = 0; i < accCount && i < shuffledAcc.length; i++) {
+    if (!outfit.find(o => o.id === shuffledAcc[i].id)) {
+      outfit.push(shuffledAcc[i]);
+    }
+  }
 
   const chaosMessages = [
     "the snails chose violence today",
