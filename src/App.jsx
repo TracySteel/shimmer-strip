@@ -477,6 +477,37 @@ export default function App() {
     setOutfitForm({ name: "", vibes: [], weatherTags: [] });
   };
 
+  const handleOutfitSelfie = async (outfitId, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const selfie = reader.result;
+      const prev = savedOutfits.find(o => o.id === outfitId);
+      const updated = { ...prev, selfie };
+      setSavedOutfits(cur => cur.map(o => o.id === outfitId ? updated : o));
+      showToast("Mirror selfie added! 🪞✨");
+      const ok = await updateOutfitOnServer(updated);
+      if (!ok && prev) {
+        setSavedOutfits(cur => cur.map(o => o.id === outfitId ? prev : o));
+        showToast("Couldn't save selfie 😿");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeOutfitSelfie = async (outfitId) => {
+    const prev = savedOutfits.find(o => o.id === outfitId);
+    const updated = { ...prev, selfie: null };
+    setSavedOutfits(cur => cur.map(o => o.id === outfitId ? updated : o));
+    showToast("Selfie removed 🌀");
+    const ok = await updateOutfitOnServer(updated);
+    if (!ok && prev) {
+      setSavedOutfits(cur => cur.map(o => o.id === outfitId ? prev : o));
+      showToast("Couldn't update 😿");
+    }
+  };
+
   const saveSurpriseOutfit = async () => {
     if (!surpriseResult || !surpriseResult.items.length) return;
     const isChaos = surpriseResult.structure === "chaos";
@@ -1537,6 +1568,45 @@ export default function App() {
                               </div>
                             ) : (
                               <>
+                                {/* Mirror selfie */}
+                                {o.selfie ? (
+                                  <div style={{ position: "relative", marginBottom: 12, paddingTop: 14 }}>
+                                    <img src={o.selfie} alt={`${o.name} selfie`} style={{
+                                      width: "100%", maxHeight: 360, objectFit: "cover",
+                                      borderRadius: 12, border: "1px solid rgba(196,149,106,0.2)",
+                                    }} />
+                                    <button onClick={() => removeOutfitSelfie(o.id)} style={{
+                                      position: "absolute", top: 20, right: 6,
+                                      background: "rgba(0,0,0,0.6)", border: "none",
+                                      color: "#d4c4b0", padding: "4px 10px", borderRadius: 16,
+                                      fontSize: 10, cursor: "pointer", fontFamily: "inherit",
+                                    }}>{"×"} Remove selfie</button>
+                                    <label style={{
+                                      position: "absolute", bottom: 6, right: 6,
+                                      background: "rgba(0,0,0,0.6)", border: "none",
+                                      color: "#d4c4b0", padding: "4px 10px", borderRadius: 16,
+                                      fontSize: 10, cursor: "pointer", fontFamily: "inherit",
+                                    }}>
+                                      {"🪞"} Replace
+                                      <input type="file" accept="image/*" onChange={e => handleOutfitSelfie(o.id, e)} style={{ display: "none" }} />
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <div style={{ paddingTop: 14, marginBottom: 12 }}>
+                                    <label style={{
+                                      display: "flex", alignItems: "center", justifyContent: "center",
+                                      gap: 8, padding: "14px 16px",
+                                      background: "rgba(196,149,106,0.04)",
+                                      border: "1px dashed rgba(196,149,106,0.2)",
+                                      borderRadius: 12, color: "#8a7a6a", fontSize: 12,
+                                      cursor: "pointer", transition: "all 0.3s ease",
+                                    }}>
+                                      {"🪞"} Add mirror selfie
+                                      <input type="file" accept="image/*" onChange={e => handleOutfitSelfie(o.id, e)} style={{ display: "none" }} />
+                                    </label>
+                                  </div>
+                                )}
+
                                 {/* Item photo grid — stylist laying clothes on the bed */}
                                 <div style={{
                                   display: "grid",
