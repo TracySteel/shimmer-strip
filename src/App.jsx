@@ -9,7 +9,7 @@ import { COLOURS, getAllColours, getColourObj, outfitColourScore, loadCustomColo
 import { generateBestOutfit, generateChaosOutfit } from "./outfitEngine.js";
 
 const CATEGORIES = [
-  "Top", "Bottom", "Dress", "Matching Set", "Jumpsuit", "Pyjamas", "Jacket", "Shoes", "Accessory", "Bag", "Hat", "Jewellery",
+  "Top", "Bottom", "Dress", "Matching Set", "Jumpsuit", "Pyjamas", "Jacket", "Cardigan", "Shoes", "Accessory", "Bag", "Hat", "Jewellery",
 ];
 
 const VIBES = [
@@ -34,7 +34,7 @@ const SURPRISE_VIBES = [
 
 const LOCATIONS = [
   "Flumpasaurus Guarded Basket", "Jumpers Box", "Six-Drawer Chest",
-  "Skylight Tallboy", "Three-Drawer Chest", "Spiral Cocoon Door",
+  "Skylight Tallboy", "Three-Drawer Chest", "Spiral Cocoon",
   "Carved Chest", "Bag Basket", "Shoe Storage",
   "Tanks Tubes & Vests Basket", "Fishcat's Wardrobe",
 ];
@@ -158,7 +158,7 @@ function ItemCard({ item, onRemove, onEdit, onSelect, selected, showSelect, idx 
           width: "100%", height: 120, borderRadius: 8,
           overflow: "hidden", marginBottom: 8,
         }}>
-          <img src={item.photo} alt={item.name} style={{
+          <img src={item.photo} alt={item.name} loading="lazy" style={{
             width: "100%", height: "100%", objectFit: "cover",
           }} />
         </div>
@@ -281,6 +281,10 @@ export default function App() {
   const [surpriseVibe, setSurpriseVibe] = useState(null);
   const [crimsonMoon, setCrimsonMoon] = useState(false);
   const [chaosMode, setChaosMode] = useState(false);
+
+  // Pagination
+  const [wardrobePage, setWardrobePage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   // Delete confirmation
   const [confirmDelete, setConfirmDelete] = useState(null); // { id, name, type: "item"|"outfit" }
@@ -749,27 +753,40 @@ export default function App() {
             ) : (
               <>
                 <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                  <select value={filter.category} onChange={e => setFilter(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
+                  <select value={filter.category} onChange={e => { setFilter(f => ({ ...f, category: e.target.value })); setWardrobePage(1); }} style={selectStyle}>
                     <option value="All">All Types</option>
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                  <select value={filter.colour} onChange={e => setFilter(f => ({ ...f, colour: e.target.value }))} style={selectStyle}>
+                  <select value={filter.colour} onChange={e => { setFilter(f => ({ ...f, colour: e.target.value })); setWardrobePage(1); }} style={selectStyle}>
                     <option value="All">All Colours</option>
-                    {allColours.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    {[...allColours].sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                   </select>
-                  <select value={filter.vibe} onChange={e => setFilter(f => ({ ...f, vibe: e.target.value }))} style={selectStyle}>
+                  <select value={filter.vibe} onChange={e => { setFilter(f => ({ ...f, vibe: e.target.value })); setWardrobePage(1); }} style={selectStyle}>
                     <option value="All">All Vibes</option>
                     {VIBES.map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
                 <p style={{ fontSize: 11, color: "#6a5a4a", marginBottom: 12 }}>
-                  Showing {filteredItems.length} of {items.length} pieces
+                  Showing {Math.min(wardrobePage * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length} pieces
+                  {filteredItems.length !== items.length && ` (${items.length} total)`}
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-                  {filteredItems.map((item, idx) => (
+                  {filteredItems.slice(0, wardrobePage * ITEMS_PER_PAGE).map((item, idx) => (
                     <ItemCard key={item.id} item={item} onRemove={requestRemoveItem} onEdit={startEditItem} idx={idx} />
                   ))}
                 </div>
+                {wardrobePage * ITEMS_PER_PAGE < filteredItems.length && (
+                  <button onClick={() => setWardrobePage(p => p + 1)} style={{
+                    width: "100%", padding: 14, marginTop: 16,
+                    background: "rgba(196,149,106,0.08)",
+                    border: "1px solid rgba(196,149,106,0.15)",
+                    borderRadius: 12, color: "#c4956a", fontSize: 13,
+                    fontFamily: "inherit", letterSpacing: 1, cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}>
+                    Show more ({filteredItems.length - wardrobePage * ITEMS_PER_PAGE} remaining) {"🌀"}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -1933,6 +1950,21 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Back to top */}
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        style={{
+          position: "fixed", bottom: 24, right: 24,
+          width: 44, height: 44, borderRadius: "50%",
+          background: "rgba(26,20,16,0.85)",
+          border: "1px solid rgba(196,149,106,0.3)",
+          color: "#c4956a", fontSize: 18, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          transition: "all 0.3s ease", zIndex: 50,
+        }}
+      >{"↑"}</button>
 
       {/* CSS */}
       <style>{`

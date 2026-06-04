@@ -90,7 +90,7 @@ function outfitColourScore(items) {
 const REQUIRED_TOP = ["Top"];
 const REQUIRED_BOTTOM = ["Bottom"];
 const FULL_BODY = ["Dress", "Jumpsuit", "Matching Set", "Pyjamas"];
-const MID_LAYER = ["Jacket"];
+const MID_LAYER = ["Jacket", "Cardigan"];
 const FOOTWEAR = ["Shoes"];
 const ACCESSORY_CATS = ["Bag", "Hat", "Jewellery", "Accessory"];
 const CRIMSON_MOON_VIBES = ["Cosy Cocoon", "Everyday", "Codeineificated", "Day Off Staying In"];
@@ -329,7 +329,7 @@ export function createMcpServer(readData, writeData, getWeather) {
         inputSchema: {
           type: "object",
           properties: {
-            category: { type: "string", description: "Filter by category: Top, Bottom, Dress, Matching Set, Jumpsuit, Pyjamas, Jacket, Shoes, Accessory, Bag, Hat, Jewellery" },
+            category: { type: "string", description: "Filter by category: Top, Bottom, Dress, Matching Set, Jumpsuit, Pyjamas, Jacket, Cardigan, Shoes, Accessory, Bag, Hat, Jewellery" },
             colour: { type: "string", description: "Filter by colour name" },
             vibe: { type: "string", description: "Filter by vibe tag" },
             weather: { type: "string", description: "Filter by weather tag: Hot, Warm, Mild, Cold, Rainy" },
@@ -372,7 +372,7 @@ export function createMcpServer(readData, writeData, getWeather) {
             crimsonMoon: { type: "boolean", description: "Comfort-first mode — prioritises cosy items" },
             excludeLocations: {
               type: "array", items: { type: "string" },
-              description: "Locations to exclude (e.g. [\"Fishcat's Wardrobe\"] when Fishcat is sleeping). Known locations: Flumpasaurus Guarded Basket, Jumpers Box, Six-Drawer Chest, Skylight Tallboy, Three-Drawer Chest, Spiral Cocoon Door, Carved Chest, Bag Basket, Shoe Storage, Tanks Tubes & Vests Basket, Fishcat's Wardrobe",
+              description: "Locations to exclude (e.g. [\"Fishcat's Wardrobe\"] when Fishcat is sleeping). Known locations: Flumpasaurus Guarded Basket, Jumpers Box, Six-Drawer Chest, Skylight Tallboy, Three-Drawer Chest, Spiral Cocoon, Carved Chest, Bag Basket, Shoe Storage, Tanks Tubes & Vests Basket, Fishcat's Wardrobe",
             },
             day: { type: "string", enum: ["today", "tomorrow"], description: "Use today's or tomorrow's weather forecast. Default: today" },
           },

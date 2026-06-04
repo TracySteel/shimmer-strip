@@ -10,8 +10,8 @@ import { outfitColourScore } from './colours.js';
 
 const TOPS = ["Top"];
 const BOTTOMS = ["Bottom"]; // trousers, skirts, shorts are all "Bottom" category
-const FULL_BODY = ["Dress", "Jumpsuit"];
-const LAYERS = ["Jacket"];
+const FULL_BODY = ["Dress", "Jumpsuit", "Matching Set"];
+const LAYERS = ["Jacket", "Cardigan"];
 const ACCESSORIES = ["Shoes", "Bag", "Hat", "Jewellery", "Accessory"];
 
 // Weather affects what's appropriate
