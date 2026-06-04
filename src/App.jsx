@@ -268,6 +268,7 @@ function ColourScoreBar({ score }) {
 // ─── Main App ───
 export default function App() {
   const [items, setItems] = useState(() => loadItems());
+  const [isAuthed, setIsAuthed] = useState(() => document.cookie.includes("shimmer-auth="));
   const [view, setView] = useState("wardrobe");
   const [filter, setFilter] = useState({ category: "All", colour: "All", vibe: "All" });
   const [outfit, setOutfit] = useState([]);
@@ -323,6 +324,8 @@ export default function App() {
         showToast("Offline — changes won't sync until reconnected \uD83C\uDF00");
       }
     });
+    // Check auth from server
+    fetch("/api/auth").then(r => r.json()).then(d => setIsAuthed(d.authenticated)).catch(() => {});
   }, []);
 
   // Keep localStorage cache in sync with React state on every change.
@@ -702,7 +705,7 @@ export default function App() {
       }}>
         {[
           { id: "wardrobe", label: "Wardrobe", icon: "\uD83C\uDF00" },
-          { id: "add", label: "Add", icon: "\u2728" },
+          ...(isAuthed ? [{ id: "add", label: "Add", icon: "\u2728" }] : []),
           { id: "outfit", label: "Build Outfit", icon: "\uD83D\uDC57" },
           { id: "savedOutfits", label: "Saved", icon: "\uD83D\uDC96" },
           { id: "surpriseSetup", label: "Surprise Me", icon: "\uD83D\uDC0C" },
@@ -772,7 +775,7 @@ export default function App() {
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
                   {filteredItems.slice(0, wardrobePage * ITEMS_PER_PAGE).map((item, idx) => (
-                    <ItemCard key={item.id} item={item} onRemove={requestRemoveItem} onEdit={startEditItem} idx={idx} />
+                    <ItemCard key={item.id} item={item} onRemove={isAuthed ? requestRemoveItem : undefined} onEdit={isAuthed ? startEditItem : undefined} idx={idx} />
                   ))}
                 </div>
                 {wardrobePage * ITEMS_PER_PAGE < filteredItems.length && (
@@ -1204,7 +1207,7 @@ export default function App() {
                     }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                         <p style={{ fontSize: 15, color: "#d4c4b0", margin: 0, fontWeight: 600 }}>{o.name}</p>
-                        <div style={{ display: "flex", gap: 6 }}>
+                        {isAuthed && <div style={{ display: "flex", gap: 6 }}>
                           <button onClick={() => startEditOutfit(o)} style={{
                             background: "rgba(0,0,0,0.4)", border: "none",
                             color: "#8a7a6a", width: 24, height: 24,
@@ -1217,7 +1220,7 @@ export default function App() {
                             borderRadius: "50%", fontSize: 11, cursor: "pointer",
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}>{"×"}</button>
-                        </div>
+                        </div>}
                       </div>
                       {((o.vibes && o.vibes.length > 0) || (o.weatherTags && o.weatherTags.length > 0)) && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
@@ -1277,7 +1280,7 @@ export default function App() {
                   <h3 style={{ fontSize: 13, color: "#c4956a", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
                     Current Outfit
                   </h3>
-                  {!showOutfitSave && (
+                  {isAuthed && !showOutfitSave && (
                     <button onClick={startSaveOutfit} style={{
                       background: "rgba(196,149,106,0.2)",
                       border: "1px solid rgba(196,149,106,0.3)",
@@ -1588,10 +1591,11 @@ export default function App() {
                                 {/* Mirror selfie */}
                                 {o.selfie ? (
                                   <div style={{ position: "relative", marginBottom: 12, paddingTop: 14 }}>
-                                    <img src={o.selfie} alt={`${o.name} selfie`} style={{
+                                    <img src={o.selfie} alt={`${o.name} selfie`} loading="lazy" style={{
                                       width: "100%", maxHeight: 360, objectFit: "cover",
                                       borderRadius: 12, border: "1px solid rgba(196,149,106,0.2)",
                                     }} />
+                                    {isAuthed && <>
                                     <button onClick={() => removeOutfitSelfie(o.id)} style={{
                                       position: "absolute", top: 20, right: 6,
                                       background: "rgba(0,0,0,0.6)", border: "none",
@@ -1607,8 +1611,9 @@ export default function App() {
                                       {"🪞"} Replace
                                       <input type="file" accept="image/*" onChange={e => handleOutfitSelfie(o.id, e)} style={{ display: "none" }} />
                                     </label>
+                                    </>}
                                   </div>
-                                ) : (
+                                ) : isAuthed ? (
                                   <div style={{ paddingTop: 14, marginBottom: 12 }}>
                                     <label style={{
                                       display: "flex", alignItems: "center", justifyContent: "center",
@@ -1622,7 +1627,7 @@ export default function App() {
                                       <input type="file" accept="image/*" onChange={e => handleOutfitSelfie(o.id, e)} style={{ display: "none" }} />
                                     </label>
                                   </div>
-                                )}
+                                ) : null}
 
                                 {/* Item photo grid — stylist laying clothes on the bed */}
                                 <div style={{
@@ -1681,8 +1686,8 @@ export default function App() {
 
                                 <ColourScoreBar score={outfitColourScore(o.items)} />
 
-                                {/* Actions */}
-                                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                                {/* Actions — authed only */}
+                                {isAuthed && <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                                   <button onClick={() => startEditOutfit(o)} style={{
                                     flex: 1, padding: "8px 14px",
                                     background: "rgba(196,149,106,0.08)",
@@ -1697,7 +1702,7 @@ export default function App() {
                                     color: "#8a6a6a", fontSize: 11, fontFamily: "inherit",
                                     cursor: "pointer", letterSpacing: 0.5,
                                   }}>{"×"} Remove</button>
-                                </div>
+                                </div>}
                               </>
                             )}
                           </div>
@@ -1918,7 +1923,7 @@ export default function App() {
                     fontFamily: "inherit", letterSpacing: 1,
                     textTransform: "uppercase", cursor: "pointer",
                   }}>{"\u2190"} Settings</button>
-                  <button onClick={saveSurpriseOutfit} style={{
+                  {isAuthed && <button onClick={saveSurpriseOutfit} style={{
                     padding: "12px 22px",
                     background: surpriseResult.structure === "chaos"
                       ? "rgba(155,27,48,0.15)" : "rgba(196,149,106,0.2)",
@@ -1928,7 +1933,7 @@ export default function App() {
                     color: surpriseResult.structure === "chaos" ? "#e86b6b" : "#c4956a",
                     fontSize: 12, fontFamily: "inherit", letterSpacing: 1,
                     textTransform: "uppercase", cursor: "pointer",
-                  }}>{surpriseResult.structure === "chaos" ? "\uD83D\uDD25 Save This" : "\uD83D\uDC0C Save This"}</button>
+                  }}>{surpriseResult.structure === "chaos" ? "\uD83D\uDD25 Save This" : "\uD83D\uDC0C Save This"}</button>}
                   <button onClick={generateSurprise} style={{
                     padding: "12px 22px",
                     background: surpriseResult.structure === "chaos"

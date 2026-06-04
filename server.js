@@ -57,6 +57,39 @@ app.use(express.json({ limit: '50mb' })); // Large limit for base64 photos
 // Serve the built React app
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// ─── Shimmer Cookie Auth ───
+// Visit the secret auth page once per device → permanent cookie → full access.
+// Without cookie: read-only (GET only on /api). MCP at /mcp is unaffected.
+const AUTH_PATH = process.env.SHIMMER_AUTH_PATH || '/shimmer-auth';
+const AUTH_TOKEN = 'sparklebutt';
+
+app.get(AUTH_PATH, (req, res) => {
+  res.setHeader('Set-Cookie', `shimmer-auth=${AUTH_TOKEN}; Max-Age=${10 * 365 * 24 * 60 * 60}; Path=/; SameSite=Lax`);
+  res.send(`<!DOCTYPE html>
+<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="background:#1a1410;color:#c4956a;font-family:'Quicksand',Georgia,serif;text-align:center;padding:80px 20px;margin:0;min-height:100vh">
+<div style="font-size:64px;margin-bottom:20px">🐌</div>
+<h1 style="font-size:24px;letter-spacing:4px;margin-bottom:12px;font-weight:400">ACCESS GRANTED</h1>
+<p style="color:#8a7a6a;font-size:14px;margin-bottom:4px">The snail recognises you.</p>
+<p style="color:#6a5a4a;font-size:12px">This device is shimmer-authenticated forever.</p>
+<a href="/" style="display:inline-block;margin-top:24px;padding:12px 28px;background:rgba(196,149,106,0.2);border:1px solid rgba(196,149,106,0.3);border-radius:24px;color:#c4956a;text-decoration:none;font-size:14px;letter-spacing:2px">ENTER THE WARDROBE →</a>
+</body></html>`);
+});
+
+// Auth check endpoint — so the React app can ask "am I authenticated?"
+app.get('/api/auth', (req, res) => {
+  const authed = (req.headers.cookie || '').includes(`shimmer-auth=${AUTH_TOKEN}`);
+  res.json({ authenticated: authed });
+});
+
+// Write protection: block POST/PUT/DELETE on /api without the cookie
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET') return next();
+  const cookies = req.headers.cookie || '';
+  if (cookies.includes(`shimmer-auth=${AUTH_TOKEN}`)) return next();
+  res.status(403).json({ error: 'Read-only access. The snail does not recognise this device.' });
+});
+
 // ─── API Routes ───
 
 // Get all data
