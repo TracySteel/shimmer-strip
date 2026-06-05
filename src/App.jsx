@@ -325,6 +325,11 @@ export default function App() {
   const [editingOutfitId, setEditingOutfitId] = useState(null);
   const [outfitSourceFilter, setOutfitSourceFilter] = useState("All");
 
+  // Build outfit state
+  const [editingBuildOutfit, setEditingBuildOutfit] = useState(null); // null or { id, name, vibes, weatherTags, source }
+  const [buildFilter, setBuildFilter] = useState({ category: "All", colour: "All" });
+  const [buildPage, setBuildPage] = useState(1);
+
   // Custom colours
   const [customColours, setCustomColours] = useState(() => loadCustomColours());
   const [showColourCreator, setShowColourCreator] = useState(false);
@@ -511,6 +516,47 @@ export default function App() {
     setOutfitForm({ name: "", vibes: [], weatherTags: [] });
   };
 
+  // ─── Build Outfit: Edit existing ───
+  const startBuildEdit = (o) => {
+    setEditingBuildOutfit({ id: o.id, name: o.name, vibes: o.vibes || [], weatherTags: o.weatherTags || [], source: o.source });
+    setOutfit([...o.items]);
+    setOutfitForm({ name: o.name, vibes: o.vibes || [], weatherTags: o.weatherTags || [] });
+    setShowOutfitSave(false);
+    setBuildFilter({ category: "All", colour: "All" });
+    setBuildPage(1);
+    setView("outfit");
+  };
+
+  const saveBuildEdit = async () => {
+    const name = outfitForm.name.trim() || editingBuildOutfit.name;
+    const prev = savedOutfits.find(o => o.id === editingBuildOutfit.id);
+    const updated = {
+      ...prev,
+      name,
+      items: [...outfit],
+      vibes: outfitForm.vibes,
+      weatherTags: outfitForm.weatherTags,
+    };
+    setSavedOutfits(cur => cur.map(o => o.id === editingBuildOutfit.id ? updated : o));
+    showToast(`${name} updated! ✨`);
+    setEditingBuildOutfit(null);
+    setOutfit([]);
+    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setShowOutfitSave(false);
+    const ok = await updateOutfitOnServer(updated);
+    if (!ok && prev) {
+      setSavedOutfits(cur => cur.map(o => o.id === updated.id ? prev : o));
+      showToast(`Couldn't save ${name} 😿`);
+    }
+  };
+
+  const cancelBuildEdit = () => {
+    setEditingBuildOutfit(null);
+    setOutfit([]);
+    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setShowOutfitSave(false);
+  };
+
   const handleOutfitSelfie = async (outfitId, e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -689,6 +735,23 @@ export default function App() {
     }
     return true;
   });
+
+  // Build outfit filtered items
+  const buildItems = items.filter(i => {
+    if (i.inLaundry) return false;
+    if (buildFilter.category !== "All" && i.category !== buildFilter.category) return false;
+    if (buildFilter.colour !== "All" && i.colour !== buildFilter.colour) return false;
+    return true;
+  });
+
+  // Outfit completeness
+  const outfitCheck = {
+    hasTop: outfit.some(i => ["Top", "Cardigan"].includes(i.category)),
+    hasBottom: outfit.some(i => i.category === "Bottom"),
+    hasFullBody: outfit.some(i => ["Dress", "Jumpsuit", "Matching Set"].includes(i.category)),
+    hasShoes: outfit.some(i => i.category === "Shoes"),
+  };
+  const outfitHasBase = outfitCheck.hasFullBody || (outfitCheck.hasTop && outfitCheck.hasBottom);
 
   // ─── Photo upload ───
   const handlePhotoUpload = e => {
@@ -1141,285 +1204,145 @@ export default function App() {
         {/* ═══ BUILD OUTFIT ═══ */}
         {view === "outfit" && (
           <div>
-            {/* Saved Outfits — lozenges at top */}
-            {savedOutfits.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <h3 style={{ fontSize: 13, color: "#c4956a", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
-                    {"👗"} Saved Outfits ({savedOutfits.length})
+            {/* ── Floating Outfit Preview Banner ── */}
+            {(outfit.length > 0 || editingBuildOutfit) && (
+              <div style={{
+                position: "sticky", top: 0, zIndex: 30,
+                background: "rgba(26,20,16,0.95)",
+                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(196,149,106,0.2)",
+                borderRadius: 16, padding: 14, marginBottom: 16,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+              }}>
+                {/* Mode label */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: outfit.length > 0 ? 10 : 0 }}>
+                  <h3 style={{ fontSize: 12, color: "#c4956a", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
+                    {editingBuildOutfit ? `✎ Editing: ${editingBuildOutfit.name}` : "🌀 New Outfit"}
                   </h3>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {isAuthed && outfit.length > 0 && !showOutfitSave && (
+                      <button onClick={() => { setOutfitForm(editingBuildOutfit ? { name: editingBuildOutfit.name, vibes: editingBuildOutfit.vibes || [], weatherTags: editingBuildOutfit.weatherTags || [] } : { name: "", vibes: [], weatherTags: [] }); setShowOutfitSave(true); }} style={{
+                        padding: "5px 12px", background: "rgba(196,149,106,0.2)",
+                        border: "1px solid rgba(196,149,106,0.3)", borderRadius: 16,
+                        color: "#c4956a", fontSize: 10, fontFamily: "inherit", cursor: "pointer", letterSpacing: 1,
+                      }}>{editingBuildOutfit ? "Save ✨" : "Save 💖"}</button>
+                    )}
+                    {editingBuildOutfit && (
+                      <button onClick={cancelBuildEdit} style={{
+                        padding: "5px 12px", background: "rgba(196,149,106,0.06)",
+                        border: "1px solid rgba(196,149,106,0.1)", borderRadius: 16,
+                        color: "#8a7a6a", fontSize: 10, fontFamily: "inherit", cursor: "pointer",
+                      }}>Cancel</button>
+                    )}
+                    {!editingBuildOutfit && outfit.length > 0 && (
+                      <button onClick={() => setOutfit([])} style={{
+                        padding: "5px 12px", background: "rgba(196,149,106,0.06)",
+                        border: "1px solid rgba(196,149,106,0.1)", borderRadius: 16,
+                        color: "#6a5a4a", fontSize: 10, fontFamily: "inherit", cursor: "pointer",
+                      }}>Clear</button>
+                    )}
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-                  <select value={outfitFilter.vibe} onChange={e => setOutfitFilter(f => ({ ...f, vibe: e.target.value }))} style={{ ...selectStyle, flex: "none", minWidth: 100 }}>
-                    <option value="All">All Vibes</option>
-                    {VIBES.map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                  <select value={outfitFilter.weather} onChange={e => setOutfitFilter(f => ({ ...f, weather: e.target.value }))} style={{ ...selectStyle, flex: "none", minWidth: 100 }}>
-                    <option value="All">All Weather</option>
-                    {WEATHERS.map(w => <option key={w} value={w}>{WEATHER_EMOJI[w]} {w}</option>)}
-                  </select>
-                </div>
-                <div style={{
-                  display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8,
-                  WebkitOverflowScrolling: "touch",
-                }}>
-                  {filteredOutfits.map(o => (
-                    <button key={o.id} onClick={() => setExpandedOutfit(expandedOutfit === o.id ? null : o.id)}
-                      style={{
-                        flexShrink: 0, padding: "8px 14px", borderRadius: 20,
-                        background: expandedOutfit === o.id ? "rgba(196,149,106,0.2)" : "rgba(196,149,106,0.06)",
-                        border: `1px solid ${expandedOutfit === o.id ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.12)"}`,
-                        color: expandedOutfit === o.id ? "#c4956a" : "#8a7a6a",
-                        fontSize: 12, fontFamily: "inherit", cursor: "pointer",
-                        letterSpacing: 0.5, transition: "all 0.3s ease",
-                        display: "flex", alignItems: "center", gap: 6,
-                      }}
-                    >
-                      {o.name}
-                      <span style={{ display: "flex", gap: 2 }}>
-                        {o.items.slice(0, 4).map(item => (
-                          <span key={item.id} style={{
-                            width: 8, height: 8, borderRadius: "50%", display: "inline-block",
+
+                {/* Mini item cards — tap to remove */}
+                {outfit.length > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                    {outfit.map(item => (
+                      <div key={item.id} onClick={() => toggleOutfitItem(item)} style={{
+                        display: "flex", alignItems: "center", gap: 5,
+                        background: "rgba(196,149,106,0.1)", padding: "4px 10px 4px 4px",
+                        borderRadius: 16, fontSize: 11, cursor: "pointer",
+                        transition: "all 0.2s ease",
+                      }}>
+                        {item.photo ? (
+                          <div style={{
+                            width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                            background: `url(${item.photo}) center/cover`,
+                            border: "1px solid rgba(196,149,106,0.2)",
+                          }} />
+                        ) : (
+                          <div style={{
+                            width: 14, height: 14, borderRadius: "50%",
                             background: getColourObj(item.colour).hex,
                             border: "1px solid rgba(255,255,255,0.1)",
                           }} />
-                        ))}
-                        {o.items.length > 4 && <span style={{ fontSize: 9, color: "#6a5a4a" }}>+{o.items.length - 4}</span>}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {filteredOutfits.length === 0 && (
-                  <p style={{ fontSize: 11, color: "#5a4a3a", textAlign: "center", fontStyle: "italic", margin: "8px 0 0" }}>
-                    No outfits match those filters {"🌀"}
-                  </p>
+                        )}
+                        <span style={{ color: "#d4c4b0" }}>{item.name}</span>
+                        <span style={{ color: "#6a5a4a", fontSize: 10 }}>{"×"}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
-                {/* Expanded outfit detail */}
-                {expandedOutfit && (() => {
-                  const o = savedOutfits.find(x => x.id === expandedOutfit);
-                  if (!o) return null;
-                  if (editingOutfitId === o.id) {
-                    return (
-                      <div style={{
-                        background: "rgba(196,149,106,0.06)",
-                        border: "1px solid rgba(196,149,106,0.2)",
-                        borderRadius: 12, padding: 16, marginTop: 10,
-                        animation: "fadeIn 0.3s ease",
-                      }}>
-                        <label style={labelStyle}>Outfit Name</label>
-                        <input type="text" value={outfitForm.name}
-                          onChange={e => setOutfitForm(prev => ({ ...prev, name: e.target.value }))}
-                          placeholder={o.name} style={inputStyle}
-                        />
-                        <label style={labelStyle}>Outfit Vibes</label>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                          {VIBES.map(vibe => (
-                            <button key={vibe} onClick={() => setOutfitForm(prev => ({
-                              ...prev, vibes: prev.vibes.includes(vibe) ? prev.vibes.filter(v => v !== vibe) : [...prev.vibes, vibe],
-                            }))} style={{
-                              ...chipStyle,
-                              background: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
-                              borderColor: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
-                              color: outfitForm.vibes.includes(vibe) ? "#c4956a" : "#8a7a6a",
-                            }}>{vibe}</button>
-                          ))}
-                        </div>
-                        <label style={labelStyle}>Good for which weather?</label>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                          {WEATHERS.map(w => (
-                            <button key={w} onClick={() => setOutfitForm(prev => ({
-                              ...prev, weatherTags: prev.weatherTags.includes(w) ? prev.weatherTags.filter(t => t !== w) : [...prev.weatherTags, w],
-                            }))} style={{
-                              ...chipStyle,
-                              background: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.2)" : "rgba(196,149,106,0.06)",
-                              borderColor: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.35)" : "rgba(196,149,106,0.1)",
-                              color: outfitForm.weatherTags.includes(w) ? "#7a9ab0" : "#8a7a6a",
-                            }}>{WEATHER_EMOJI[w]} {w}</button>
-                          ))}
-                        </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={saveEditOutfit} style={{
-                            flex: 1, padding: 12,
-                            background: "linear-gradient(135deg, rgba(196,149,106,0.3), rgba(155,27,48,0.2))",
-                            border: "1px solid rgba(196,149,106,0.3)", borderRadius: 12,
-                            color: "#c4956a", fontSize: 12, fontFamily: "inherit",
-                            letterSpacing: 1, textTransform: "uppercase", cursor: "pointer",
-                          }}>Save Changes {"✨"}</button>
-                          <button onClick={cancelEditOutfit} style={{
-                            padding: "12px 16px",
-                            background: "rgba(196,149,106,0.06)",
-                            border: "1px solid rgba(196,149,106,0.1)", borderRadius: 12,
-                            color: "#8a7a6a", fontSize: 12, fontFamily: "inherit", cursor: "pointer",
-                          }}>Cancel</button>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div style={{
-                      background: "rgba(196,149,106,0.06)",
-                      border: "1px solid rgba(196,149,106,0.15)",
-                      borderRadius: 12, padding: 16, marginTop: 10,
-                      animation: "fadeIn 0.3s ease",
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                        <p style={{ fontSize: 15, color: "#d4c4b0", margin: 0, fontWeight: 600 }}>{o.name}</p>
-                        {isAuthed && <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => startEditOutfit(o)} style={{
-                            background: "rgba(0,0,0,0.4)", border: "none",
-                            color: "#8a7a6a", width: 24, height: 24,
-                            borderRadius: "50%", fontSize: 11, cursor: "pointer",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>{"✎"}</button>
-                          <button onClick={() => requestDeleteOutfit(o.id)} style={{
-                            background: "rgba(0,0,0,0.4)", border: "none",
-                            color: "#8a7a6a", width: 24, height: 24,
-                            borderRadius: "50%", fontSize: 11, cursor: "pointer",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>{"×"}</button>
-                        </div>}
-                      </div>
-                      {((o.vibes && o.vibes.length > 0) || (o.weatherTags && o.weatherTags.length > 0)) && (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
-                          {(o.vibes || []).map(v => (
-                            <span key={v} style={{
-                              fontSize: 9, padding: "2px 6px", borderRadius: 10,
-                              background: "rgba(196,149,106,0.15)", color: "#a08a70", letterSpacing: "0.5px",
-                            }}>{v}</span>
-                          ))}
-                          {(o.weatherTags || []).map(w => (
-                            <span key={w} style={{
-                              fontSize: 9, padding: "2px 6px", borderRadius: 10,
-                              background: "rgba(106,149,196,0.12)", color: "#7a9ab0", letterSpacing: "0.3px",
-                            }}>{WEATHER_EMOJI[w]} {w}</span>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {o.items.map(item => (
-                          <div key={item.id} style={{
-                            display: "flex", alignItems: "center", gap: 6,
-                            background: "rgba(196,149,106,0.1)", padding: "6px 10px",
-                            borderRadius: 16, fontSize: 11,
-                          }}>
-                            {item.photo ? (
-                              <div style={{
-                                width: 20, height: 20, borderRadius: 4, flexShrink: 0,
-                                background: `url(${item.photo}) center/cover`,
-                                border: "1px solid rgba(196,149,106,0.2)",
-                              }} />
-                            ) : (
-                              <div style={{
-                                width: 10, height: 10, borderRadius: "50%",
-                                background: getColourObj(item.colour).hex,
-                                border: "1px solid rgba(255,255,255,0.1)",
-                              }} />
-                            )}
-                            <span style={{ color: "#d4c4b0" }}>{item.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <ColourScoreBar score={outfitColourScore(o.items)} />
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
 
-            {/* Current outfit being built */}
-            {outfit.length > 0 && (
-              <div style={{
-                background: "rgba(196,149,106,0.06)",
-                border: "1px solid rgba(196,149,106,0.15)",
-                borderRadius: 16, padding: 16, marginBottom: 20,
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <h3 style={{ fontSize: 13, color: "#c4956a", margin: 0, letterSpacing: 1, textTransform: "uppercase" }}>
-                    Current Outfit
-                  </h3>
-                  {isAuthed && !showOutfitSave && (
-                    <button onClick={startSaveOutfit} style={{
-                      background: "rgba(196,149,106,0.2)",
-                      border: "1px solid rgba(196,149,106,0.3)",
-                      color: "#c4956a", padding: "6px 14px", borderRadius: 20,
-                      fontSize: 11, cursor: "pointer", fontFamily: "inherit", letterSpacing: 1,
-                    }}>Save Outfit {"\uD83D\uDC96"}</button>
-                  )}
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {outfit.map(item => (
-                    <div key={item.id} style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      background: "rgba(196,149,106,0.1)", padding: "6px 12px",
-                      borderRadius: 20, fontSize: 12,
-                    }}>
-                      <div style={{
-                        width: 12, height: 12, borderRadius: "50%",
-                        background: getColourObj(item.colour).hex,
-                        border: "1px solid rgba(255,255,255,0.1)",
-                      }} />
-                      <span style={{ color: "#d4c4b0" }}>{item.name}</span>
-                      <button onClick={() => toggleOutfitItem(item)} style={{
-                        background: "none", border: "none", color: "#8a7a6a",
-                        cursor: "pointer", fontSize: 12, padding: "0 0 0 4px",
-                      }}>{"\u00D7"}</button>
-                    </div>
-                  ))}
-                </div>
-                <ColourScoreBar score={outfitColourScore(outfit)} />
+                {/* Completeness hints */}
+                {outfit.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10 }}>
+                    {!outfitCheck.hasFullBody && (
+                      <>
+                        <span style={{ color: outfitCheck.hasTop ? "#34d399" : "#5a4a3a" }}>
+                          {outfitCheck.hasTop ? "✅" : "○"} Top
+                        </span>
+                        <span style={{ color: outfitCheck.hasBottom ? "#34d399" : "#5a4a3a" }}>
+                          {outfitCheck.hasBottom ? "✅" : "○"} Bottom
+                        </span>
+                      </>
+                    )}
+                    {outfitCheck.hasFullBody && (
+                      <span style={{ color: "#34d399" }}>✅ {outfit.find(i => ["Dress", "Jumpsuit", "Matching Set"].includes(i.category))?.category}</span>
+                    )}
+                    <span style={{ color: outfitCheck.hasShoes ? "#34d399" : "#5a4a3a" }}>
+                      {outfitCheck.hasShoes ? "✅" : "○"} Shoes
+                    </span>
+                    {outfitHasBase && <ColourScoreBar score={outfitColourScore(outfit)} />}
+                  </div>
+                )}
 
-                {/* Outfit save form */}
+                {/* Save form (inline) */}
                 {showOutfitSave && (
-                  <div style={{
-                    borderTop: "1px solid rgba(196,149,106,0.15)",
-                    marginTop: 16, paddingTop: 16,
-                    animation: "fadeIn 0.3s ease",
-                  }}>
-                    <label style={labelStyle}>Name your outfit</label>
+                  <div style={{ borderTop: "1px solid rgba(196,149,106,0.15)", marginTop: 10, paddingTop: 10 }}>
                     <input type="text" value={outfitForm.name}
                       onChange={e => setOutfitForm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder={`Outfit ${savedOutfits.length + 1}`}
-                      style={inputStyle}
+                      placeholder={editingBuildOutfit ? editingBuildOutfit.name : `Outfit ${savedOutfits.length + 1}`}
+                      style={{ ...inputStyle, marginBottom: 10, padding: "8px 12px", fontSize: 12 }}
                     />
-                    <label style={labelStyle}>Outfit Vibes</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
                       {VIBES.map(vibe => (
                         <button key={vibe} onClick={() => setOutfitForm(prev => ({
                           ...prev, vibes: prev.vibes.includes(vibe) ? prev.vibes.filter(v => v !== vibe) : [...prev.vibes, vibe],
                         }))} style={{
-                          ...chipStyle,
+                          padding: "3px 8px", borderRadius: 12, border: "1px solid",
+                          fontSize: 9, cursor: "pointer", fontFamily: "inherit",
                           background: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
                           borderColor: outfitForm.vibes.includes(vibe) ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
                           color: outfitForm.vibes.includes(vibe) ? "#c4956a" : "#8a7a6a",
                         }}>{vibe}</button>
                       ))}
                     </div>
-                    <label style={labelStyle}>Good for which weather?</label>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
                       {WEATHERS.map(w => (
                         <button key={w} onClick={() => setOutfitForm(prev => ({
                           ...prev, weatherTags: prev.weatherTags.includes(w) ? prev.weatherTags.filter(t => t !== w) : [...prev.weatherTags, w],
                         }))} style={{
-                          ...chipStyle,
+                          padding: "3px 8px", borderRadius: 12, border: "1px solid",
+                          fontSize: 9, cursor: "pointer", fontFamily: "inherit",
                           background: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.2)" : "rgba(196,149,106,0.06)",
                           borderColor: outfitForm.weatherTags.includes(w) ? "rgba(106,149,196,0.35)" : "rgba(196,149,106,0.1)",
                           color: outfitForm.weatherTags.includes(w) ? "#7a9ab0" : "#8a7a6a",
                         }}>{WEATHER_EMOJI[w]} {w}</button>
                       ))}
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={confirmSaveOutfit} style={{
-                        flex: 1, padding: 12,
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={editingBuildOutfit ? saveBuildEdit : confirmSaveOutfit} style={{
+                        flex: 1, padding: 10,
                         background: "linear-gradient(135deg, rgba(196,149,106,0.3), rgba(155,27,48,0.2))",
-                        border: "1px solid rgba(196,149,106,0.3)", borderRadius: 12,
-                        color: "#c4956a", fontSize: 12, fontFamily: "inherit",
+                        border: "1px solid rgba(196,149,106,0.3)", borderRadius: 10,
+                        color: "#c4956a", fontSize: 11, fontFamily: "inherit",
                         letterSpacing: 1, textTransform: "uppercase", cursor: "pointer",
-                      }}>Save {"\u2728"}</button>
+                      }}>{editingBuildOutfit ? "Update ✨" : "Save ✨"}</button>
                       <button onClick={() => setShowOutfitSave(false)} style={{
-                        padding: "12px 16px",
-                        background: "rgba(196,149,106,0.06)",
-                        border: "1px solid rgba(196,149,106,0.1)", borderRadius: 12,
-                        color: "#8a7a6a", fontSize: 12, fontFamily: "inherit", cursor: "pointer",
+                        padding: "10px 14px", background: "rgba(196,149,106,0.06)",
+                        border: "1px solid rgba(196,149,106,0.1)", borderRadius: 10,
+                        color: "#8a7a6a", fontSize: 11, fontFamily: "inherit", cursor: "pointer",
                       }}>Cancel</button>
                     </div>
                   </div>
@@ -1427,17 +1350,34 @@ export default function App() {
               </div>
             )}
 
+            {/* ── Filters ── */}
+            {items.length > 0 && (
+              <>
+                <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                  <select value={buildFilter.category} onChange={e => { setBuildFilter(f => ({ ...f, category: e.target.value })); setBuildPage(1); }} style={selectStyle}>
+                    <option value="All">All Types</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                  <select value={buildFilter.colour} onChange={e => { setBuildFilter(f => ({ ...f, colour: e.target.value })); setBuildPage(1); }} style={selectStyle}>
+                    <option value="All">All Colours</option>
+                    {[...allColours].sort((a, b) => a.name.localeCompare(b.name)).map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                </div>
+                <p style={{ fontSize: 11, color: "#6a5a4a", marginBottom: 10 }}>
+                  Tap items to {editingBuildOutfit ? "add/remove" : "add"} · {buildItems.length} available
+                </p>
+              </>
+            )}
+
+            {/* ── Item Grid ── */}
             {items.length === 0 ? (
               <div style={{ textAlign: "center", padding: "40px 20px", color: "#6a5a4a" }}>
-                <p>Add some clothes first, then come back to build outfits! {"\u2728"}</p>
+                <p>Add some clothes first, then come back to build outfits! {"✨"}</p>
               </div>
             ) : (
               <>
-                <p style={{ fontSize: 12, color: "#8a7a6a", marginBottom: 12, textAlign: "center" }}>
-                  Tap items to add them to your outfit
-                </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-                  {items.map((item, idx) => (
+                  {buildItems.slice(0, buildPage * ITEMS_PER_PAGE).map((item, idx) => (
                     <ItemCard
                       key={item.id} item={item} idx={idx}
                       showSelect onSelect={toggleOutfitItem}
@@ -1445,11 +1385,23 @@ export default function App() {
                     />
                   ))}
                 </div>
+                {buildPage * ITEMS_PER_PAGE < buildItems.length && (
+                  <button onClick={() => setBuildPage(p => p + 1)} style={{
+                    width: "100%", padding: 14, marginTop: 16,
+                    background: "rgba(196,149,106,0.08)",
+                    border: "1px solid rgba(196,149,106,0.15)",
+                    borderRadius: 12, color: "#c4956a", fontSize: 13,
+                    fontFamily: "inherit", letterSpacing: 1, cursor: "pointer",
+                  }}>
+                    Show more ({buildItems.length - buildPage * ITEMS_PER_PAGE} remaining) {"🌀"}
+                  </button>
+                )}
               </>
             )}
 
           </div>
         )}
+
 
         {/* ═══ SAVED OUTFITS ═══ */}
         {view === "savedOutfits" && (
@@ -1745,13 +1697,13 @@ export default function App() {
 
                                 {/* Actions — authed only */}
                                 {isAuthed && <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                                  <button onClick={() => startEditOutfit(o)} style={{
+                                  <button onClick={() => startBuildEdit(o)} style={{
                                     flex: 1, padding: "8px 14px",
                                     background: "rgba(196,149,106,0.08)",
                                     border: "1px solid rgba(196,149,106,0.15)", borderRadius: 10,
                                     color: "#8a7a6a", fontSize: 11, fontFamily: "inherit",
                                     cursor: "pointer", letterSpacing: 0.5,
-                                  }}>{"✎"} Edit</button>
+                                  }}>{"✎"} Edit Items</button>
                                   <button onClick={() => requestDeleteOutfit(o.id)} style={{
                                     padding: "8px 14px",
                                     background: "rgba(155,27,48,0.06)",
