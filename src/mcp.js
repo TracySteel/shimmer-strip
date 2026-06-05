@@ -394,8 +394,8 @@ export function createMcpServer(readData, writeData, getWeather) {
             weatherTags: { type: "array", items: { type: "string" }, description: "Weather tags" },
             source: {
               type: "string",
-              enum: ["claude", "manual", "chaos", "snail", "smart"],
-              description: "How this outfit was created",
+              enum: ["claude", "ode", "amanda", "zai", "manual", "chaos", "snail", "smart"],
+              description: "Who picked this outfit: claude (ShimmerClaude), ode (Claude Code), amanda, zai, manual (Tracy), chaos, snail",
             },
             notes: { type: "string", description: "Optional notes about the outfit" },
           },

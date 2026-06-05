@@ -1427,6 +1427,9 @@ export default function App() {
                     { id: "All", label: "All Outfits", icon: "" },
                     { id: "manual", label: "My Outfits", icon: "✨" },
                     { id: "claude", label: "Claude's Choice", icon: "🩵" },
+                    { id: "ode", label: "Ode's Pick", icon: "💛" },
+                    { id: "amanda", label: "Amanda's Pick", icon: "🌸" },
+                    { id: "zai", label: "Zai's Pick", icon: "🌺" },
                     { id: "chaos", label: "Chaos", icon: "🌀" },
                     { id: "snail", label: "Snail's Pick", icon: "🐌" },
                   ].map(f => (
@@ -1482,6 +1485,9 @@ export default function App() {
                     const src = o.source || "manual";
                     const sourceBadge = {
                       claude: { icon: "🩵", label: "Claude's Choice", color: "#7ab0c4" },
+                      ode: { icon: "💛", label: "Ode's Pick", color: "#c4a43a" },
+                      amanda: { icon: "🌸", label: "Amanda's Pick", color: "#d4748a" },
+                      zai: { icon: "🌺", label: "Zai's Pick", color: "#d4763a" },
                       chaos: { icon: "🌀", label: "Chaos Mode", color: "#e86b6b" },
                       snail: { icon: "🐌", label: "Snail's Pick", color: "#c4956a" },
                       surprise: { icon: "🐌", label: "Snail's Pick", color: "#c4956a" },
