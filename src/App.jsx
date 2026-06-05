@@ -465,7 +465,7 @@ export default function App() {
 
   const startSaveOutfit = () => {
     if (outfit.length === 0) { showToast("Pick some pieces first! \uD83D\uDC0C"); return; }
-    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setOutfitForm({ name: "", vibes: [], weatherTags: [], pickedBy: "manual" });
     setShowOutfitSave(true);
   };
 
@@ -474,7 +474,7 @@ export default function App() {
     const newOutfit = {
       name, items: [...outfit], id: Date.now(),
       vibes: outfitForm.vibes, weatherTags: outfitForm.weatherTags,
-      source: "manual",
+      source: outfitForm.pickedBy || "manual",
     };
     setSavedOutfits(prev => [...prev, newOutfit]);
     showToast(`${name} saved! \uD83D\uDC96`);
@@ -502,7 +502,7 @@ export default function App() {
     };
     setSavedOutfits(cur => cur.map(o => o.id === editingOutfitId ? updated : o));
     setEditingOutfitId(null);
-    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setOutfitForm({ name: "", vibes: [], weatherTags: [], pickedBy: "manual" });
     showToast(`${updated.name} updated! \u2728`);
     const ok = await updateOutfitOnServer(updated);
     if (!ok && prev) {
@@ -513,14 +513,14 @@ export default function App() {
 
   const cancelEditOutfit = () => {
     setEditingOutfitId(null);
-    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setOutfitForm({ name: "", vibes: [], weatherTags: [], pickedBy: "manual" });
   };
 
   // ─── Build Outfit: Edit existing ───
   const startBuildEdit = (o) => {
     setEditingBuildOutfit({ id: o.id, name: o.name, vibes: o.vibes || [], weatherTags: o.weatherTags || [], source: o.source });
     setOutfit([...o.items]);
-    setOutfitForm({ name: o.name, vibes: o.vibes || [], weatherTags: o.weatherTags || [] });
+    setOutfitForm({ name: o.name, vibes: o.vibes || [], weatherTags: o.weatherTags || [], pickedBy: o.source || "manual" });
     setShowOutfitSave(false);
     setBuildFilter({ category: "All", colour: "All" });
     setBuildPage(1);
@@ -536,12 +536,13 @@ export default function App() {
       items: [...outfit],
       vibes: outfitForm.vibes,
       weatherTags: outfitForm.weatherTags,
+      source: outfitForm.pickedBy || prev.source || "manual",
     };
     setSavedOutfits(cur => cur.map(o => o.id === editingBuildOutfit.id ? updated : o));
     showToast(`${name} updated! ✨`);
     setEditingBuildOutfit(null);
     setOutfit([]);
-    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setOutfitForm({ name: "", vibes: [], weatherTags: [], pickedBy: "manual" });
     setShowOutfitSave(false);
     const ok = await updateOutfitOnServer(updated);
     if (!ok && prev) {
@@ -553,7 +554,7 @@ export default function App() {
   const cancelBuildEdit = () => {
     setEditingBuildOutfit(null);
     setOutfit([]);
-    setOutfitForm({ name: "", vibes: [], weatherTags: [] });
+    setOutfitForm({ name: "", vibes: [], weatherTags: [], pickedBy: "manual" });
     setShowOutfitSave(false);
   };
 
@@ -1221,7 +1222,7 @@ export default function App() {
                   </h3>
                   <div style={{ display: "flex", gap: 6 }}>
                     {isAuthed && outfit.length > 0 && !showOutfitSave && (
-                      <button onClick={() => { setOutfitForm(editingBuildOutfit ? { name: editingBuildOutfit.name, vibes: editingBuildOutfit.vibes || [], weatherTags: editingBuildOutfit.weatherTags || [] } : { name: "", vibes: [], weatherTags: [] }); setShowOutfitSave(true); }} style={{
+                      <button onClick={() => { setOutfitForm(editingBuildOutfit ? { name: editingBuildOutfit.name, vibes: editingBuildOutfit.vibes || [], weatherTags: editingBuildOutfit.weatherTags || [], pickedBy: editingBuildOutfit.source || "manual" } : { name: "", vibes: [], weatherTags: [], pickedBy: "manual" }); setShowOutfitSave(true); }} style={{
                         padding: "5px 12px", background: "rgba(196,149,106,0.2)",
                         border: "1px solid rgba(196,149,106,0.3)", borderRadius: 16,
                         color: "#c4956a", fontSize: 10, fontFamily: "inherit", cursor: "pointer", letterSpacing: 1,
@@ -1305,6 +1306,24 @@ export default function App() {
                       placeholder={editingBuildOutfit ? editingBuildOutfit.name : `Outfit ${savedOutfits.length + 1}`}
                       style={{ ...inputStyle, marginBottom: 10, padding: "8px 12px", fontSize: 12 }}
                     />
+                    <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+                      <span style={{ fontSize: 10, color: "#6a5a4a", letterSpacing: 1, textTransform: "uppercase", flexShrink: 0 }}>Picked by</span>
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {[
+                          { id: "manual", label: "Me", icon: "✨" },
+                          { id: "amanda", label: "Amanda", icon: "🌸" },
+                          { id: "zai", label: "Zai", icon: "🌺" },
+                        ].map(p => (
+                          <button key={p.id} onClick={() => setOutfitForm(prev => ({ ...prev, pickedBy: p.id }))} style={{
+                            padding: "3px 10px", borderRadius: 14, border: "1px solid",
+                            fontSize: 10, cursor: "pointer", fontFamily: "inherit",
+                            background: outfitForm.pickedBy === p.id ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
+                            borderColor: outfitForm.pickedBy === p.id ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
+                            color: outfitForm.pickedBy === p.id ? "#c4956a" : "#8a7a6a",
+                          }}>{p.icon} {p.label}</button>
+                        ))}
+                      </div>
+                    </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
                       {VIBES.map(vibe => (
                         <button key={vibe} onClick={() => setOutfitForm(prev => ({
