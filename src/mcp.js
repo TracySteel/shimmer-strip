@@ -467,7 +467,8 @@ export function createMcpServer(readData, writeData, getWeather) {
 
       case "suggest_outfit": {
         const data = readData();
-        const items = data.items || [];
+        // Exclude items in the laundry
+        const items = (data.items || []).filter(i => !i.inLaundry);
 
         // Determine weather tag — support "tomorrow" for evening planning
         let weatherTag = args?.weather;
@@ -505,11 +506,18 @@ export function createMcpServer(readData, writeData, getWeather) {
         const data = readData();
         const allItems = data.items || [];
         const ids = args.itemIds || [];
-        const outfitItems = ids.map(id => allItems.find(i => i.id === id)).filter(Boolean);
-
-        if (outfitItems.length === 0) {
-          return { content: [{ type: "text", text: "No valid item IDs provided. Use get_wardrobe to see available items and their IDs." }] };
+        const found = [];
+        const failed = [];
+        for (const id of ids) {
+          const item = allItems.find(i => i.id === id);
+          if (item) found.push(item);
+          else failed.push(id);
         }
+
+        if (found.length === 0) {
+          return { content: [{ type: "text", text: `No valid item IDs provided. Failed IDs: ${ids.join(", ")}. Use get_wardrobe to see available items and their IDs.` }] };
+        }
+        const outfitItems = found;
 
         const newOutfit = {
           name: args.name,
@@ -524,10 +532,14 @@ export function createMcpServer(readData, writeData, getWeather) {
         data.outfits.push(newOutfit);
         writeData(data);
 
+        const warnings = failed.length > 0
+          ? `\n⚠️ ${failed.length} item ID(s) not found: ${failed.join(", ")}`
+          : "";
+
         return {
           content: [{
             type: "text",
-            text: `Outfit "${args.name}" saved with ${outfitItems.length} items! (ID: ${newOutfit.id})\nItems: ${outfitItems.map(i => i.name).join(", ")}`,
+            text: `Outfit "${args.name}" saved with ${outfitItems.length} items! (ID: ${newOutfit.id})\nItems: ${outfitItems.map(i => i.name).join(", ")}${warnings}`,
           }],
         };
       }

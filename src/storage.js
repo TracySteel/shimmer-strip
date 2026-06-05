@@ -133,6 +133,14 @@ export async function removeOutfitFromServer(id) {
   return await apiDelete(`/outfits/${id}`);
 }
 
+// Laundry
+export async function toggleLaundryOnServer(id) {
+  return await apiPost(`/items/${id}/laundry`, {});
+}
+export async function laundryDoneOnServer() {
+  return await apiPost('/laundry/done', {});
+}
+
 // Custom colours
 export async function addColourToServer(colour) {
   return await apiPost('/colours', colour);

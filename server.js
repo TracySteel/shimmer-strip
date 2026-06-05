@@ -121,6 +121,25 @@ app.put('/api/items/:id', (req, res) => {
   res.json({ ok: true, item: data.items[idx] });
 });
 
+// Toggle laundry status
+app.post('/api/items/:id/laundry', (req, res) => {
+  const data = readData();
+  const item = data.items.find(i => String(i.id) === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  item.inLaundry = !item.inLaundry;
+  writeData(data);
+  res.json({ ok: true, inLaundry: item.inLaundry });
+});
+
+// Clear all laundry (laundry done!)
+app.post('/api/laundry/done', (req, res) => {
+  const data = readData();
+  let count = 0;
+  data.items.forEach(i => { if (i.inLaundry) { i.inLaundry = false; count++; } });
+  writeData(data);
+  res.json({ ok: true, cleared: count });
+});
+
 app.delete('/api/items/:id', (req, res) => {
   const data = readData();
   data.items = data.items.filter(i => String(i.id) !== req.params.id);

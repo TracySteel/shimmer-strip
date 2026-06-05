@@ -4,6 +4,7 @@ import {
   fetchAllData, addItemToServer, updateItemOnServer, removeItemFromServer,
   addOutfitToServer, updateOutfitOnServer, removeOutfitFromServer,
   addColourToServer, removeColourFromServer,
+  toggleLaundryOnServer, laundryDoneOnServer,
 } from "./storage.js";
 import { COLOURS, getAllColours, getColourObj, outfitColourScore, loadCustomColours, saveCustomColours, guessWarmth } from "./colours.js";
 import { generateBestOutfit, generateChaosOutfit } from "./outfitEngine.js";
@@ -139,17 +140,19 @@ function ConfirmModal({ message, itemName, onConfirm, onCancel }) {
 }
 
 // ─── Item Card ───
-function ItemCard({ item, onRemove, onEdit, onSelect, selected, showSelect, idx }) {
+function ItemCard({ item, onRemove, onEdit, onSelect, onLaundry, selected, showSelect, idx }) {
   const col = getColourObj(item.colour);
+  const inLaundry = item.inLaundry;
   return (
     <div
       onClick={showSelect ? () => onSelect(item) : undefined}
       style={{
-        background: selected ? "rgba(196,149,106,0.18)" : "rgba(196,149,106,0.06)",
+        background: selected ? "rgba(196,149,106,0.18)" : inLaundry ? "rgba(196,149,106,0.03)" : "rgba(196,149,106,0.06)",
         border: `1px solid ${selected ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.12)"}`,
         borderRadius: 12, padding: 12, position: "relative",
         cursor: showSelect ? "pointer" : "default",
         transition: "all 0.3s ease",
+        opacity: inLaundry && !showSelect ? 0.5 : 1,
         animation: `fadeSlideIn 0.4s ease ${(idx || 0) * 0.05}s both`,
       }}
     >
@@ -232,6 +235,30 @@ function ItemCard({ item, onRemove, onEdit, onSelect, selected, showSelect, idx 
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >{"\u00D7"}</button>
+      )}
+      {onLaundry && (
+        <button
+          onClick={e => { e.stopPropagation(); onLaundry(item.id); }}
+          title={inLaundry ? "Back from laundry" : "Put in laundry"}
+          style={{
+            position: "absolute", bottom: 8, right: 8,
+            background: inLaundry ? "rgba(106,149,196,0.25)" : "rgba(0,0,0,0.3)",
+            border: inLaundry ? "1px solid rgba(106,149,196,0.4)" : "none",
+            color: inLaundry ? "#7a9ab0" : "#6a5a4a",
+            width: 22, height: 22,
+            borderRadius: "50%", fontSize: 11, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >{"\uD83E\uDDFA"}</button>
+      )}
+      {inLaundry && (
+        <div style={{
+          position: "absolute", top: 8, left: 8,
+          background: "rgba(106,149,196,0.3)",
+          border: "1px solid rgba(106,149,196,0.4)",
+          borderRadius: 10, padding: "2px 6px",
+          fontSize: 9, color: "#7a9ab0", letterSpacing: 0.5,
+        }}>{"\uD83E\uDDFA"} In wash</div>
       )}
     </div>
   );
@@ -534,6 +561,33 @@ export default function App() {
     }
   };
 
+  // ─── Laundry ───
+  const toggleLaundry = async (id) => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const wasInLaundry = item.inLaundry;
+    setItems(prev => prev.map(i => i.id === id ? { ...i, inLaundry: !i.inLaundry } : i));
+    showToast(wasInLaundry ? `${item.name} back from the wash! ✨` : `${item.name} → laundry 🧺`);
+    const ok = await toggleLaundryOnServer(id);
+    if (!ok) {
+      setItems(prev => prev.map(i => i.id === id ? { ...i, inLaundry: wasInLaundry } : i));
+      showToast("Couldn't update laundry status 😿");
+    }
+  };
+
+  const laundryDone = async () => {
+    const count = items.filter(i => i.inLaundry).length;
+    if (count === 0) { showToast("Nothing in the wash! 🐌"); return; }
+    const prev = items.map(i => ({ ...i }));
+    setItems(cur => cur.map(i => ({ ...i, inLaundry: false })));
+    showToast(`${count} items back from the wash! ✨`);
+    const ok = await laundryDoneOnServer();
+    if (!ok) {
+      setItems(prev);
+      showToast("Couldn't clear laundry 😿");
+    }
+  };
+
   const requestDeleteOutfit = (id) => {
     const outfit = savedOutfits.find(o => o.id === id);
     setConfirmDelete({ id, name: outfit?.name || "this outfit", type: "outfit" });
@@ -580,14 +634,16 @@ export default function App() {
 
   // ─── Surprise Me ───
   const generateSurprise = useCallback(() => {
-    if (items.length < 2) {
-      showToast("Need more clothes to surprise you! Add some items first \uD83D\uDC0C");
+    // Exclude laundry items from suggestions
+    const available = items.filter(i => !i.inLaundry);
+    if (available.length < 2) {
+      showToast("Need more clothes to surprise you! (Check the laundry?) \uD83D\uDC0C");
       return;
     }
 
     let result;
     if (chaosMode) {
-      result = generateChaosOutfit(items);
+      result = generateChaosOutfit(available);
     } else {
       // Map surprise vibes to item vibes
       const vibeMap = {
@@ -601,7 +657,7 @@ export default function App() {
         "Smart Occasion (Sad)": "Fancy",
         "Smart Occasion (Happy)": "Fancy",
       };
-      result = generateBestOutfit(items, {
+      result = generateBestOutfit(available, {
         weather: surpriseWeather,
         vibe: surpriseVibe ? (vibeMap[surpriseVibe] || surpriseVibe) : null,
         crimsonMoon,
@@ -708,6 +764,7 @@ export default function App() {
           ...(isAuthed ? [{ id: "add", label: "Add", icon: "\u2728" }] : []),
           { id: "outfit", label: "Build Outfit", icon: "\uD83D\uDC57" },
           { id: "savedOutfits", label: "Saved", icon: "\uD83D\uDC96" },
+          { id: "laundry", label: `Laundry${items.filter(i => i.inLaundry).length ? ` (${items.filter(i => i.inLaundry).length})` : ""}`, icon: "\uD83E\uDDFA" },
           { id: "surpriseSetup", label: "Surprise Me", icon: "\uD83D\uDC0C" },
         ].map(tab => (
           <button
@@ -775,7 +832,7 @@ export default function App() {
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
                   {filteredItems.slice(0, wardrobePage * ITEMS_PER_PAGE).map((item, idx) => (
-                    <ItemCard key={item.id} item={item} onRemove={isAuthed ? requestRemoveItem : undefined} onEdit={isAuthed ? startEditItem : undefined} idx={idx} />
+                    <ItemCard key={item.id} item={item} onRemove={isAuthed ? requestRemoveItem : undefined} onEdit={isAuthed ? startEditItem : undefined} onLaundry={isAuthed ? toggleLaundry : undefined} idx={idx} />
                   ))}
                 </div>
                 {wardrobePage * ITEMS_PER_PAGE < filteredItems.length && (
@@ -1713,6 +1770,49 @@ export default function App() {
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {/* ═══ LAUNDRY ═══ */}
+        {view === "laundry" && (
+          <div>
+            {(() => {
+              const laundryItems = items.filter(i => i.inLaundry);
+              return laundryItems.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "60px 20px", opacity: 0.6 }}>
+                  <div style={{ fontSize: 48, marginBottom: 16 }}>{"🧺"}</div>
+                  <p style={{ fontSize: 16, color: "#8a7a6a", marginBottom: 8 }}>
+                    Laundry basket is empty!
+                  </p>
+                  <p style={{ fontSize: 13, color: "#6a5a4a" }}>
+                    Everything's clean and ready to wear {"✨"}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                    <p style={{ fontSize: 13, color: "#8a7a6a", margin: 0 }}>
+                      {"🧺"} {laundryItems.length} {laundryItems.length === 1 ? "item" : "items"} in the wash
+                    </p>
+                    {isAuthed && (
+                      <button onClick={laundryDone} style={{
+                        padding: "8px 16px",
+                        background: "rgba(52,211,153,0.15)",
+                        border: "1px solid rgba(52,211,153,0.3)",
+                        borderRadius: 20, color: "#34d399", fontSize: 11,
+                        fontFamily: "inherit", cursor: "pointer",
+                        letterSpacing: 1, transition: "all 0.3s ease",
+                      }}>{"✨"} Laundry Done!</button>
+                    )}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                    {laundryItems.map((item, idx) => (
+                      <ItemCard key={item.id} item={item} onLaundry={isAuthed ? toggleLaundry : undefined} idx={idx} />
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 
