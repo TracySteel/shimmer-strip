@@ -180,4 +180,5 @@ export const COMFORT_MODE = {
 // The secret URL path for device authentication.
 // Visit this URL once per device to get edit access.
 // Change it to something only you know.
-export const AUTH_PATH = "/shimmer-auth";
+// Change this to your own secret path! Don't use the default.
+export const AUTH_PATH = "/wardrobe-auth";

@@ -56,7 +56,7 @@ The app runs on `http://localhost:3000` by default.
 ### First Steps
 
 1. Open the app
-2. Visit `/shimmer-auth` to authenticate your device (one-time, permanent)
+2. Visit your auth URL (see `config.js`) to authenticate your device (one-time, permanent)
 3. Tap **Add** — upload a photo, pick category, colour, vibes
 4. Add a few more until you've got at least one top, one bottom, and one pair of shoes
 5. Hit **Surprise Me** and meet the snail
@@ -188,7 +188,7 @@ A toggle on the Surprise Me page that prioritises comfort-first items. Originall
 ### Auth
 
 ```js
-export const AUTH_PATH = "/shimmer-auth";
+export const AUTH_PATH = "/wardrobe-auth";
 ```
 
 Change to any secret URL path. Visit it once per device for permanent edit access. Without it: read-only browsing.

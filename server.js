@@ -96,7 +96,10 @@ function extractSelfiePhoto(outfit) {
 // ─── Shimmer Cookie Auth ───
 // Visit the secret auth page once per device → permanent cookie → full access.
 // Without cookie: read-only (GET only on /api). MCP at /mcp is unaffected.
-const AUTH_PATH = process.env.SHIMMER_AUTH_PATH || '/shimmer-auth';
+// Auth path — reads from config.js, overridable via env var.
+// IMPORTANT: change this in src/config.js to your own secret path!
+import { AUTH_PATH as CONFIG_AUTH_PATH } from './src/config.js';
+const AUTH_PATH = process.env.SHIMMER_AUTH_PATH || CONFIG_AUTH_PATH || '/wardrobe-auth';
 const AUTH_TOKEN = 'sparklebutt';
 
 app.get(AUTH_PATH, (req, res) => {
