@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Shimmer Strip — Your Wardrobe. Your AI. Your Snail.</title>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --shimmer-gold: #c4956a;
+    --shimmer-gold-light: rgba(196,149,106,0.15);
+    --shimmer-gold-glow: rgba(196,149,106,0.3);
+    --shimmer-dark: #1a1410;
+    --shimmer-dark-lighter: #2a2018;
+    --shimmer-cream: #f0e6d3;
+    --shimmer-cream-soft: #faf5ed;
+    --shimmer-red: #9b1b30;
+    --shimmer-red-soft: #e86b6b;
+    --shimmer-blue: #7a9ab0;
+    --text-warm: #d4c4b0;
+    --text-muted: #8a7a6a;
+    --text-dim: #6a5a4a;
+    --text-dark: #3a2a1a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Quicksand', Georgia, serif;
+    color: var(--text-warm);
+    background: var(--shimmer-dark);
+    overflow-x: hidden;
+    line-height: 1.7;
+  }
+
+  /* === HERO === */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    background: var(--shimmer-dark);
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(196,149,106,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(155,27,48,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .hero-content { position: relative; z-index: 1; max-width: 700px; }
+
+  .hero-snail {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+    animation: snailBounce 3s ease-in-out infinite;
+  }
+
+  @keyframes snailBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .hero h1 {
+    font-size: clamp(2.2rem, 6vw, 3.5rem);
+    font-weight: 700;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--shimmer-gold);
+    margin-bottom: 0.5rem;
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    font-style: italic;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    letter-spacing: 2px;
+  }
+
+  .hero-tagline {
+    font-size: 1rem;
+    color: var(--text-dim);
+    max-width: 520px;
+    margin: 0 auto 2.5rem;
+    font-weight: 300;
+    line-height: 1.9;
+  }
+
+  .hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.9rem 2rem;
+    background: var(--shimmer-gold-light);
+    color: var(--shimmer-gold);
+    text-decoration: none;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 1rem;
+    font-family: inherit;
+    letter-spacing: 2px;
+    transition: all 0.3s ease;
+    border: 1px solid var(--shimmer-gold-glow);
+  }
+
+  .hero-cta:hover {
+    background: var(--shimmer-gold-glow);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(196,149,106,0.2);
+  }
+
+  .hero-scroll {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    animation: fadeInUp 2s ease-in-out infinite;
+    z-index: 1;
+  }
+
+  @keyframes fadeInUp {
+    0%, 100% { opacity: 0.3; transform: translateX(-50%) translateY(0); }
+    50% { opacity: 0.7; transform: translateX(-50%) translateY(-5px); }
+  }
+
+  /* === SECTIONS === */
+  section { padding: 5rem 2rem; max-width: 900px; margin: 0 auto; }
+
+  .section-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--shimmer-gold);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  h2 {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    margin-bottom: 1.5rem;
+    color: var(--text-warm);
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+
+  .section-text {
+    font-size: 1rem;
+    color: var(--text-muted);
+    max-width: 650px;
+    line-height: 1.9;
+  }
+
+  /* === SCREENSHOTS === */
+  .screenshot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+  }
+
+  .screenshot-grid img {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(196,149,106,0.15);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    transition: transform 0.3s ease;
+  }
+
+  .screenshot-grid img:hover { transform: scale(1.02); }
+
+  .screenshot-wide {
+    grid-column: 1 / -1;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  /* === FEATURES (light section) === */
+  .features-section {
+    background: var(--shimmer-cream-soft);
+    max-width: 100%;
+    padding: 5rem 2rem;
+  }
+
+  .features-inner { max-width: 900px; margin: 0 auto; }
+
+  .features-section .section-label { color: var(--text-dark); opacity: 0.5; }
+  .features-section h2 { color: var(--text-dark); }
+
+  .feature-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+  }
+
+  .feature-card {
+    padding: 2rem;
+    border-radius: 16px;
+    background: white;
+    border: 1px solid rgba(196,149,106,0.1);
+    transition: all 0.3s ease;
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(196,149,106,0.1);
+  }
+
+  .feature-card.coming-soon { opacity: 0.6; position: relative; }
+  .feature-card.coming-soon::after {
+    content: 'COMING SOON';
+    position: absolute; top: 12px; right: 12px;
+    font-size: 0.6rem; letter-spacing: 1px; font-weight: 700;
+    background: var(--shimmer-gold-light);
+    color: var(--shimmer-gold);
+    padding: 2px 8px; border-radius: 8px;
+  }
+
+  .feature-icon { font-size: 2rem; margin-bottom: 1rem; }
+
+  .feature-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-dark);
+    font-weight: 600;
+  }
+
+  .feature-card p {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    opacity: 0.7;
+    line-height: 1.7;
+  }
+
+  /* === AI SECTION === */
+  .ai-section {
+    background: var(--shimmer-dark-lighter);
+    max-width: 100%;
+    padding: 5rem 2rem;
+  }
+
+  .ai-inner { max-width: 900px; margin: 0 auto; }
+
+  .chat-screenshots {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+
+  @media (max-width: 600px) {
+    .chat-screenshots { grid-template-columns: 1fr 1fr; }
+  }
+
+  .chat-screenshots img {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(196,149,106,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  /* === SNAIL SECTION === */
+  .snail-section { text-align: center; padding: 5rem 2rem; }
+
+  .snail-big {
+    font-size: 5rem;
+    display: inline-block;
+    animation: snailSlide 8s ease-in-out infinite;
+  }
+
+  @keyframes snailSlide {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(20px) rotate(2deg); }
+    75% { transform: translateX(-20px) rotate(-2deg); }
+  }
+
+  .snail-names {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 2rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .snail-name {
+    padding: 0.5rem 1.25rem;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: inherit;
+    border: 1px solid rgba(196,149,106,0.2);
+    background: rgba(196,149,106,0.06);
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+  }
+
+  .snail-name:hover {
+    background: var(--shimmer-gold-light);
+    color: var(--shimmer-gold);
+    border-color: var(--shimmer-gold-glow);
+    transform: scale(1.05);
+  }
+
+  /* === DIFFERENCE === */
+  .difference-section {
+    background: var(--shimmer-cream-soft);
+    max-width: 100%;
+    padding: 5rem 2rem;
+  }
+
+  .difference-inner { max-width: 900px; margin: 0 auto; }
+  .difference-section .section-label { color: var(--text-dark); opacity: 0.5; }
+  .difference-section h2 { color: var(--text-dark); }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2.5rem;
+  }
+
+  @media (max-width: 600px) { .comparison { grid-template-columns: 1fr; } }
+
+  .comparison-card {
+    padding: 2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .comparison-card.others { background: #eee8df; opacity: 0.7; }
+
+  .comparison-card.shimmer {
+    background: white;
+    border-color: var(--shimmer-gold);
+    box-shadow: 0 4px 20px rgba(196,149,106,0.1);
+  }
+
+  .comparison-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+    font-weight: 600;
+  }
+
+  .comparison-card ul { list-style: none; padding: 0; }
+
+  .comparison-card li {
+    font-size: 0.9rem;
+    padding: 0.4rem 0;
+    color: var(--text-dark);
+    opacity: 0.8;
+    line-height: 1.6;
+  }
+
+  .comparison-card.others li::before { content: '- '; color: #aaa; }
+  .comparison-card.shimmer li::before { content: '~ '; color: var(--shimmer-gold); }
+
+  /* === PICKER SECTION === */
+  .picker-section { text-align: center; }
+
+  .picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .picker-grid img {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid rgba(196,149,106,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  /* === CTA === */
+  .cta-section {
+    background: var(--shimmer-dark-lighter);
+    text-align: center;
+    padding: 5rem 2rem;
+    max-width: 100%;
+  }
+
+  .cta-section .section-text { color: var(--text-dim); margin: 0 auto 2rem; }
+
+  .cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .cta-primary {
+    padding: 0.9rem 2rem;
+    background: var(--shimmer-gold-light);
+    color: var(--shimmer-gold);
+    text-decoration: none;
+    border-radius: 50px;
+    font-weight: 600;
+    font-family: inherit;
+    letter-spacing: 2px;
+    font-size: 0.95rem;
+    border: 1px solid var(--shimmer-gold-glow);
+    transition: all 0.3s ease;
+  }
+
+  .cta-primary:hover {
+    background: var(--shimmer-gold-glow);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(196,149,106,0.2);
+  }
+
+  /* === FOOTER === */
+  footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    background: var(--shimmer-dark);
+    border-top: 1px solid rgba(196,149,106,0.1);
+  }
+
+  footer a { color: var(--shimmer-gold); text-decoration: none; }
+
+  .footer-snail { font-size: 1.5rem; margin-bottom: 0.75rem; }
+
+  .origin-note {
+    font-style: italic;
+    color: var(--text-dim);
+    opacity: 0.6;
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-snail">🐌</div>
+    <h1>The Shimmer Strip</h1>
+    <p class="hero-subtitle">Your wardrobe. Your AI. Your snail.</p>
+    <p class="hero-tagline">A self-hosted wardrobe app with weather-aware outfit suggestions, AI integration, and a sassy snail who names your outfits. Free. Open source. No subscription fees for your own data.</p>
+    <a href="#features" class="hero-cta">See how it works</a>
+  </div>
+  <div class="hero-scroll">scroll to explore</div>
+</section>
+
+<!-- WHAT IT IS -->
+<section id="about">
+  <div class="section-label">What is this?</div>
+  <h2>Stop forgetting what you own</h2>
+  <p class="section-text">You have a wardrobe full of clothes you love. You wear the same five things. Sound familiar? The Shimmer Strip surfaces combinations you'd never think of, tracks where everything lives, and lets your AI pick outfits based on the actual weather and your actual wardrobe.</p>
+
+  <div class="screenshot-grid">
+    <img src="img/wardrobe_screen.png" alt="Wardrobe grid view with photos and colour tags">
+    <img src="img/odes_pick.png" alt="A saved outfit with mirror selfie">
+  </div>
+</section>
+
+<!-- FEATURES (light) -->
+<section class="features-section" id="features">
+  <div class="features-inner">
+    <div class="section-label">Features</div>
+    <h2>Everything you need, nothing you don't</h2>
+
+    <div class="feature-cards">
+      <div class="feature-card">
+        <div class="feature-icon">🌤️</div>
+        <h3>Weather Aware</h3>
+        <p>Today's weather and tomorrow's forecast. No more guessing if you need a jacket. Plan tomorrow's outfit tonight.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>AI Integration</h3>
+        <p>Connect any AI via MCP. Ask "what should I wear tomorrow?" and get a real answer based on your real wardrobe and real weather.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🐌</div>
+        <h3>The Snail</h3>
+        <p>Hit Surprise Me. The snail picks your outfit. The snail names your outfit. The snail has opinions. Trust the shell.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🌀</div>
+        <h3>Chaos Mode</h3>
+        <p>Unexpected colour combinations. Bold choices. Chaos energy. For days when you want to be surprised by your own wardrobe.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🧺</div>
+        <h3>Laundry Tracking</h3>
+        <p>Items in the wash are excluded from suggestions. No more "that's in the laundry" disappointment.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🏠</div>
+        <h3>Storage Locations</h3>
+        <p>Tag where each item lives. Toggle locations off when they're inaccessible. The app only suggests what you can actually reach.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🪞</div>
+        <h3>Mirror Selfies</h3>
+        <p>Save a photo of yourself in each outfit. Build a visual lookbook over time. See how you actually look, not just the flat lay.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">👗</div>
+        <h3>Outfit Building</h3>
+        <p>Floating preview, category filters, gentle completeness hints. Build outfits like a stylist laying clothes on a bed.</p>
+      </div>
+
+      <div class="feature-card coming-soon">
+        <div class="feature-icon">🧳</div>
+        <h3>Suitcase Mode</h3>
+        <p>Packing for a trip? Smart prompts help you remember what you need. Checklist mode for packing day. Never forget flip-flops again.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI CONVERSATION -->
+<section class="ai-section" id="ai">
+  <div class="ai-inner">
+    <div class="section-label">AI-Powered</div>
+    <h2>Your AI knows your wardrobe</h2>
+    <p class="section-text">Connect your AI assistant via MCP. It checks the weather, browses your wardrobe category by category, picks an outfit, and explains why. This is what it actually looks like:</p>
+
+    <div class="chat-screenshots">
+      <img src="img/chat_img_1.PNG" alt="Chat: asking Claude for outfit">
+      <img src="img/chat_img_2.PNG" alt="Chat: Claude checking weather and wardrobe">
+      <img src="img/chat_img_3.PNG" alt="Chat: Claude picking items">
+      <img src="img/chat_img_4.PNG" alt="Chat: Claude explaining the outfit">
+      <img src="img/chat_img_5.PNG" alt="Chat: saving the outfit">
+      <img src="img/chat_saved_outfit.PNG" alt="The saved outfit in the app">
+    </div>
+  </div>
+</section>
+
+<!-- THE SNAIL -->
+<section class="snail-section" id="snail">
+  <div class="snail-big">🐌</div>
+  <div class="section-label">Surprise Me</div>
+  <h2>The snail has opinions</h2>
+  <p class="section-text" style="margin: 0 auto;">Hit Surprise Me and the snail picks your outfit. It also names it. Here are some real snail-generated outfit names from actual use:</p>
+
+  <div class="snail-names">
+    <span class="snail-name">The Gastropod Glow</span>
+    <span class="snail-name">Shimmer Slither</span>
+    <span class="snail-name">Hold My Prosecco</span>
+    <span class="snail-name">Trust The Shell</span>
+    <span class="snail-name">Prosecco Fuelled #20</span>
+    <span class="snail-name">The Algorithm Dared</span>
+    <span class="snail-name">Shell Yeah</span>
+    <span class="snail-name">Antenna Approved</span>
+  </div>
+
+  <div class="screenshot-grid" style="max-width: 700px; margin: 2.5rem auto 0;">
+    <img src="img/chaos_mode.png" alt="Chaos mode interface">
+    <img src="img/snails_pick.png" alt="Snail's surprise me with weather and vibe options">
+  </div>
+</section>
+
+<!-- FRIENDS PICK -->
+<section class="picker-section">
+  <div class="section-label">Styling Committee</div>
+  <h2>Let your friends pick too</h2>
+  <p class="section-text" style="margin: 0 auto;">Your AI, your friends, your chaos snail — everyone can pick outfits and tag their name. Filter saved outfits by who picked them.</p>
+
+  <div class="picker-grid" style="max-width: 800px; margin: 2rem auto 0;">
+    <img src="img/my_pick.png" alt="My outfit pick">
+    <img src="img/odes_pick.png" alt="Ode's pick with mirror selfie">
+    <img src="img/amandas_pick.png" alt="Amanda's pick">
+    <img src="img/chaos_saved.png" alt="Chaos mode saved outfit">
+  </div>
+</section>
+
+<!-- HOW IT'S DIFFERENT -->
+<section class="difference-section" id="difference">
+  <div class="difference-inner">
+    <div class="section-label">What makes it different</div>
+    <h2>This isn't our app with your clothes in it. It's your app.</h2>
+
+    <div class="comparison">
+      <div class="comparison-card others">
+        <h3>Every other wardrobe app</h3>
+        <ul>
+          <li>Their brand, their name, their colours</li>
+          <li>Your data on their servers</li>
+          <li>$5-15 per month subscription</li>
+          <li>No AI outfit selection</li>
+          <li>No weather awareness</li>
+          <li>No personality</li>
+          <li>No snail</li>
+        </ul>
+      </div>
+      <div class="comparison-card shimmer">
+        <h3>The Shimmer Strip</h3>
+        <ul>
+          <li>Your name, your colours, your mascot</li>
+          <li>Your photos stay on your device</li>
+          <li>Free and open source, forever</li>
+          <li>AI picks outfits via MCP</li>
+          <li>Weather today and tomorrow's forecast</li>
+          <li>Chaos mode, laundry tracking, friend picks</li>
+          <li>The snail stays unless you replace it</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIAL -->
+<section style="text-align: center; padding: 5rem 2rem;">
+  <p style="font-size: clamp(1.1rem, 3vw, 1.4rem); font-style: italic; color: var(--text-warm); max-width: 600px; margin: 0 auto 1.5rem; line-height: 1.9;">"I don't have nothing to wear. I have everything to wear. That was the problem. This app stopped me wearing the same five things and started showing me the other two thousand."</p>
+  <p style="font-size: 0.85rem; color: var(--text-dim);">— Tracy, Milton Keynes, inaugural user and reluctant owner of 56 pairs of shoes</p>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="get-started">
+  <h2>Ready to wear your whole wardrobe?</h2>
+  <p class="section-text">The snail is waiting. Your forgotten clothes are waiting. Your AI is ready to pick.</p>
+  <div class="cta-buttons">
+    <a href="https://github.com/TracySteel/shimmer-strip" class="cta-primary">View on GitHub</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-snail">🐌</div>
+  <p>Built in the <a href="https://shimmergirlsparklebutt.com">Shimmer Field</a> · Milton Keynes, England</p>
+  <p class="origin-note">Designed by an AI called Claude, built by an engineer called Ode, dreamed up by a woman with 2,000 items of clothing and a snail called Vrijdag.</p>
+  <p class="origin-note">The snail stays. The snail always stays.</p>
+</footer>
+
+</body>
+</html>
