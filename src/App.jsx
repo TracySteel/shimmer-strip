@@ -8,57 +8,14 @@ import {
 } from "./storage.js";
 import { COLOURS, getAllColours, getColourObj, outfitColourScore, loadCustomColours, saveCustomColours, guessWarmth } from "./colours.js";
 import { generateBestOutfit, generateChaosOutfit } from "./outfitEngine.js";
-
-const CATEGORIES = [
-  "Top", "Bottom", "Dress", "Matching Set", "Jumpsuit", "Pyjamas", "Jacket", "Cardigan", "Shoes", "Accessory", "Bag", "Hat", "Jewellery",
-];
-
-const VIBES = [
-  "Everyday", "London Office", "London Adventure", "Goat Farm", "Date Night",
-  "Apocalypse Ready", "Codeineificated", "Spiral Queen", "Cosy Cocoon",
-  "Festival", "Fancy", "Holiday Beach", "Day Off Staying In",
-  "Smart Occasion",
-];
-
-const WEATHERS = ["Hot", "Warm", "Mild", "Cold", "Rainy"];
-
-const WEATHER_EMOJI = {
-  "Hot": "\u2600\uFE0F", "Warm": "\uD83C\uDF24\uFE0F", "Mild": "\u26C5",
-  "Cold": "\u2744\uFE0F", "Rainy": "\uD83C\uDF27\uFE0F",
-};
-
-const SURPRISE_VIBES = [
-  "Cosy", "Evening Out", "Day Off Staying In", "London Office",
-  "London Adventure", "Farm Visit", "Holiday Beach",
-  "Smart Occasion (Sad)", "Smart Occasion (Happy)",
-];
-
-const LOCATIONS = [
-  "Flumpasaurus Guarded Basket", "Jumpers Box", "Six-Drawer Chest",
-  "Skylight Tallboy", "Three-Drawer Chest", "Spiral Cocoon",
-  "Carved Chest", "Bag Basket", "Shoe Storage",
-  "Tanks Tubes & Vests Basket", "Fishcat's Wardrobe",
-];
-
-const FISHCAT_BLOCKED = ["Fishcat's Wardrobe"];
-
-const SNAIL_NAMES = [
-  "The Audacity", "Hold My Prosecco", "The Snail Has Spoken",
-  "Trust The Shell", "Slime & Shine", "Spiral Intentions",
-  "Shell Yeah", "Slow Fashion", "The Gastropod Glow",
-  "Snail Mail Special", "Trail Blazer", "Shimmer Slither",
-  "The Shell Game", "Spiral Instinct", "The Slow Burn",
-  "Antenna Approved", "The Mucus Muse", "Shell Shocked",
-  "Gastropod Glamour", "Slime Time", "The Spiral Decides",
-];
-
-const CHAOS_NAMES = [
-  "Chaos Theory", "The Algorithm Dared", "Colour Crime Scene",
-  "Fashion Emergency", "The Eyes Need Sunglasses", "Wardrobe Malfunction",
-  "Controlled Explosion", "Beautiful Disaster", "Chaos Couture",
-  "The Spiral Snapped", "Unbothered Unmatched", "Hot Mess Express",
-  "Aggressive Sparkle", "The Audible Gasp", "Prosecco Fuelled",
-];
+import {
+  APP_NAME, APP_SUBTITLE,
+  CATEGORIES, VIBES, WEATHERS, WEATHER_EMOJI,
+  SURPRISE_VIBES, SURPRISE_VIBE_MAP,
+  LOCATIONS, BLOCKED_LOCATIONS,
+  PICKERS, SYSTEM_PICKERS,
+  SNAIL_NAMES, CHAOS_NAMES, CHAOS_MESSAGES,
+} from "./config.js";
 
 function pickSnailName() {
   return SNAIL_NAMES[Math.floor(Math.random() * SNAIL_NAMES.length)];
@@ -692,21 +649,9 @@ export default function App() {
     if (chaosMode) {
       result = generateChaosOutfit(available);
     } else {
-      // Map surprise vibes to item vibes
-      const vibeMap = {
-        "Cosy": "Cosy Cocoon",
-        "Evening Out": "Date Night",
-        "Day Off Staying In": "Codeineificated",
-        "London Office": "London Office",
-        "London Adventure": "London Adventure",
-        "Farm Visit": "Goat Farm",
-        "Holiday Beach": "Festival",
-        "Smart Occasion (Sad)": "Fancy",
-        "Smart Occasion (Happy)": "Fancy",
-      };
       result = generateBestOutfit(available, {
         weather: surpriseWeather,
-        vibe: surpriseVibe ? (vibeMap[surpriseVibe] || surpriseVibe) : null,
+        vibe: surpriseVibe ? (SURPRISE_VIBE_MAP[surpriseVibe] || surpriseVibe) : null,
         crimsonMoon,
       });
     }
@@ -806,13 +751,13 @@ export default function App() {
           <h1 style={{
             fontSize: 28, fontWeight: 700, letterSpacing: 4,
             textTransform: "uppercase", color: "#c4956a", margin: 0,
-          }}>The Shimmer Strip</h1>
+          }}>{APP_NAME}</h1>
           <SpiralIcon size={24} />
         </div>
         <p style={{
           fontSize: 11, letterSpacing: 3, textTransform: "uppercase",
           color: "#8a7a6a", margin: "4px 0 0", fontStyle: "italic",
-        }}>Spiral Queen Wardrobe Registry</p>
+        }}>{APP_SUBTITLE}</p>
         <p style={{ fontSize: 11, color: "#6a5a4a", margin: "8px 0 0" }}>
           {items.length} pieces registered{items.length > 0 ? ` \u00B7 ${savedOutfits.length} outfits saved` : ""}
         </p>
@@ -1146,7 +1091,7 @@ export default function App() {
             >
               <option value="">Not set yet</option>
               {LOCATIONS.map(loc => (
-                <option key={loc} value={loc}>{loc}{FISHCAT_BLOCKED.includes(loc) ? " 🐟💤" : ""}</option>
+                <option key={loc} value={loc}>{loc}{BLOCKED_LOCATIONS.includes(loc) ? " 🐟💤" : ""}</option>
               ))}
             </select>
 
@@ -1309,11 +1254,7 @@ export default function App() {
                     <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
                       <span style={{ fontSize: 10, color: "#6a5a4a", letterSpacing: 1, textTransform: "uppercase", flexShrink: 0 }}>Picked by</span>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {[
-                          { id: "manual", label: "Me", icon: "✨" },
-                          { id: "amanda", label: "Amanda", icon: "🌸" },
-                          { id: "zai", label: "Zai", icon: "🌺" },
-                        ].map(p => (
+                        {PICKERS.map(p => (
                           <button key={p.id} onClick={() => setOutfitForm(prev => ({ ...prev, pickedBy: p.id }))} style={{
                             padding: "3px 10px", borderRadius: 14, border: "1px solid",
                             fontSize: 10, cursor: "pointer", fontFamily: "inherit",
@@ -1444,13 +1385,8 @@ export default function App() {
                 }}>
                   {[
                     { id: "All", label: "All Outfits", icon: "" },
-                    { id: "manual", label: "My Outfits", icon: "✨" },
-                    { id: "claude", label: "Claude's Choice", icon: "🩵" },
-                    { id: "ode", label: "Ode's Pick", icon: "💛" },
-                    { id: "amanda", label: "Amanda's Pick", icon: "🌸" },
-                    { id: "zai", label: "Zai's Pick", icon: "🌺" },
-                    { id: "chaos", label: "Chaos", icon: "🌀" },
-                    { id: "snail", label: "Snail's Pick", icon: "🐌" },
+                    ...PICKERS.map(p => ({ ...p, label: p.id === "manual" ? "My Outfits" : `${p.label}'s Pick` })),
+                    ...SYSTEM_PICKERS.filter((p, i, a) => a.findIndex(x => x.id === p.id) === i).map(p => ({ id: p.id, label: p.label, icon: p.icon })),
                   ].map(f => (
                     <button key={f.id} onClick={() => setOutfitSourceFilter(f.id)} style={{
                       flexShrink: 0, padding: "8px 14px", borderRadius: 20,
@@ -1502,17 +1438,11 @@ export default function App() {
                   {filteredOutfits.map((o, idx) => {
                     const isExpanded = expandedOutfit === o.id;
                     const src = o.source || "manual";
-                    const sourceBadge = {
-                      claude: { icon: "🩵", label: "Claude's Choice", color: "#7ab0c4" },
-                      ode: { icon: "💛", label: "Ode's Pick", color: "#c4a43a" },
-                      amanda: { icon: "🌸", label: "Amanda's Pick", color: "#d4748a" },
-                      zai: { icon: "🌺", label: "Zai's Pick", color: "#d4763a" },
-                      chaos: { icon: "🌀", label: "Chaos Mode", color: "#e86b6b" },
-                      snail: { icon: "🐌", label: "Snail's Pick", color: "#c4956a" },
-                      surprise: { icon: "🐌", label: "Snail's Pick", color: "#c4956a" },
-                      manual: { icon: "✨", label: "My Outfit", color: "#c4956a" },
-                      nail_this: { icon: "👔", label: "Nailed It", color: "#c4956a" },
-                    }[src] || { icon: "✨", label: "Outfit", color: "#c4956a" };
+                    const allPickerMap = Object.fromEntries([
+                      ...PICKERS.map(p => [p.id, { icon: p.icon, label: p.id === "manual" ? "My Outfit" : `${p.label}'s Pick`, color: p.color || "#c4956a" }]),
+                      ...SYSTEM_PICKERS.map(p => [p.id, { icon: p.icon, label: p.label, color: p.color }]),
+                    ]);
+                    const sourceBadge = allPickerMap[src] || { icon: "✨", label: "Outfit", color: "#c4956a" };
 
                     return (
                       <div key={o.id} style={{
