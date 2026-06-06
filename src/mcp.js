@@ -325,7 +325,7 @@ export function createMcpServer(readData, writeData, getWeather) {
     tools: [
       {
         name: "get_wardrobe",
-        description: "Get all wardrobe items with full metadata (name, category, colour, vibes, weather tags, photo URLs, apocalypse rating). Use filters to narrow results. Returns JSON array of items.",
+        description: "Get wardrobe items filtered by category, colour, vibe, weather, location, or laundry status. IMPORTANT: ALWAYS use filters — never call without at least one filter. For outfit picking, call once per category (tops, then bottoms, then shoes). Use get_wardrobe_summary first for an overview.",
         inputSchema: {
           type: "object",
           properties: {
@@ -333,6 +333,9 @@ export function createMcpServer(readData, writeData, getWeather) {
             colour: { type: "string", description: "Filter by colour name" },
             vibe: { type: "string", description: "Filter by vibe tag" },
             weather: { type: "string", description: "Filter by weather tag: Hot, Warm, Mild, Cold, Rainy" },
+            location: { type: "string", description: "Filter by storage location name" },
+            excludeLocations: { type: "array", items: { type: "string" }, description: "Exclude items in these locations (e.g. [\"Fishcat's Wardrobe\"] when Fishcat is sleeping)" },
+            inLaundry: { type: "boolean", description: "Filter by laundry status. false (default) = only available items. true = only items in the wash." },
           },
         },
       },
@@ -417,6 +420,10 @@ export function createMcpServer(readData, writeData, getWeather) {
         if (args?.colour) items = items.filter(i => i.colour === args.colour);
         if (args?.vibe) items = items.filter(i => i.vibes && i.vibes.includes(args.vibe));
         if (args?.weather) items = items.filter(i => i.weatherTags && i.weatherTags.includes(args.weather));
+        if (args?.location) items = items.filter(i => i.location === args.location);
+        if (args?.excludeLocations?.length) items = items.filter(i => !i.location || !args.excludeLocations.includes(i.location));
+        if (args?.inLaundry === true) items = items.filter(i => i.inLaundry);
+        else if (args?.inLaundry === false || !args?.hasOwnProperty?.('inLaundry')) items = items.filter(i => !i.inLaundry);
         // Strip base64 photos from response to keep it small — just include whether photo exists
         const slim = items.map(i => ({
           ...i,
