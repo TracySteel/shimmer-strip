@@ -6,6 +6,8 @@ A self-hosted wardrobe organiser with weather-aware outfit suggestions, multiple
 
 No subscriptions. No data harvesting. No cloud dependency. Just your clothes, your app, your rules.
 
+**[See it in action →](https://about-wardrobe.shimmergirlsparklebutt.com)**
+
 ![Wardrobe view](docs/screenshots/wardrobe_screen.png)
 
 ---
