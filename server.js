@@ -57,6 +57,42 @@ app.use(express.json({ limit: '50mb' })); // Large limit for base64 photos
 // Serve the built React app
 app.use(express.static(path.join(__dirname, 'dist')));
 
+// Serve extracted photos with caching
+const PHOTOS_DIR = path.join(DATA_DIR, 'photos');
+if (!fs.existsSync(PHOTOS_DIR)) fs.mkdirSync(PHOTOS_DIR, { recursive: true });
+app.use('/photos', express.static(PHOTOS_DIR, { maxAge: '7d' }));
+
+// ─── Photo helpers ───
+function isBase64Photo(val) {
+  return typeof val === 'string' && val.startsWith('data:image/');
+}
+
+function saveBase64Photo(base64Data, filename) {
+  const match = base64Data.match(/^data:image\/(\w+);base64,(.+)$/s);
+  if (!match) return null;
+  const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+  const buffer = Buffer.from(match[2], 'base64');
+  const fullFilename = `${filename}.${ext}`;
+  fs.writeFileSync(path.join(PHOTOS_DIR, fullFilename), buffer);
+  return `/photos/${fullFilename}`;
+}
+
+function extractItemPhoto(item) {
+  if (isBase64Photo(item.photo)) {
+    const url = saveBase64Photo(item.photo, `item-${item.id}`);
+    if (url) item.photo = url;
+  }
+  return item;
+}
+
+function extractSelfiePhoto(outfit) {
+  if (isBase64Photo(outfit.selfie)) {
+    const url = saveBase64Photo(outfit.selfie, `selfie-${outfit.id}`);
+    if (url) outfit.selfie = url;
+  }
+  return outfit;
+}
+
 // ─── Shimmer Cookie Auth ───
 // Visit the secret auth page once per device → permanent cookie → full access.
 // Without cookie: read-only (GET only on /api). MCP at /mcp is unaffected.
@@ -106,7 +142,7 @@ app.get('/api/items', (req, res) => {
 
 app.post('/api/items', (req, res) => {
   const data = readData();
-  const item = req.body;
+  const item = extractItemPhoto(req.body);
   data.items.push(item);
   writeData(data);
   res.json({ ok: true, item });
@@ -116,9 +152,10 @@ app.put('/api/items/:id', (req, res) => {
   const data = readData();
   const idx = data.items.findIndex(i => String(i.id) === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Item not found' });
-  data.items[idx] = { ...data.items[idx], ...req.body };
+  const updated = extractItemPhoto({ ...data.items[idx], ...req.body });
+  data.items[idx] = updated;
   writeData(data);
-  res.json({ ok: true, item: data.items[idx] });
+  res.json({ ok: true, item: updated });
 });
 
 // Toggle laundry status
@@ -155,7 +192,18 @@ app.get('/api/outfits', (req, res) => {
 
 app.post('/api/outfits', (req, res) => {
   const data = readData();
-  data.outfits.push(req.body);
+  const outfit = extractSelfiePhoto(req.body);
+  // Strip base64 photos from outfit item snapshots (use URLs from main items)
+  if (outfit.items) {
+    outfit.items = outfit.items.map(item => {
+      if (isBase64Photo(item.photo)) {
+        const mainItem = data.items.find(i => i.id === item.id);
+        return { ...item, photo: mainItem?.photo || undefined };
+      }
+      return item;
+    });
+  }
+  data.outfits.push(outfit);
   writeData(data);
   res.json({ ok: true });
 });
@@ -164,9 +212,20 @@ app.put('/api/outfits/:id', (req, res) => {
   const data = readData();
   const idx = data.outfits.findIndex(o => String(o.id) === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Outfit not found' });
-  data.outfits[idx] = { ...data.outfits[idx], ...req.body };
+  const updated = extractSelfiePhoto({ ...data.outfits[idx], ...req.body });
+  // Strip base64 from outfit item snapshots
+  if (updated.items) {
+    updated.items = updated.items.map(item => {
+      if (isBase64Photo(item.photo)) {
+        const mainItem = data.items.find(i => i.id === item.id);
+        return { ...item, photo: mainItem?.photo || undefined };
+      }
+      return item;
+    });
+  }
+  data.outfits[idx] = updated;
   writeData(data);
-  res.json({ ok: true, outfit: data.outfits[idx] });
+  res.json({ ok: true, outfit: updated });
 });
 
 app.delete('/api/outfits/:id', (req, res) => {
