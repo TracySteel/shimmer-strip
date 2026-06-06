@@ -15,6 +15,7 @@ import {
   LOCATIONS, BLOCKED_LOCATIONS,
   PICKERS, SYSTEM_PICKERS,
   SNAIL_NAMES, CHAOS_NAMES, CHAOS_MESSAGES,
+  NAV_ICONS, COMFORT_MODE,
 } from "./config.js";
 
 function pickSnailName() {
@@ -769,12 +770,12 @@ export default function App() {
         padding: "0 16px 20px", flexWrap: "wrap",
       }}>
         {[
-          { id: "wardrobe", label: "Wardrobe", icon: "\uD83C\uDF00" },
-          ...(isAuthed ? [{ id: "add", label: "Add", icon: "\u2728" }] : []),
-          { id: "outfit", label: "Build Outfit", icon: "\uD83D\uDC57" },
-          { id: "savedOutfits", label: "Saved", icon: "\uD83D\uDC96" },
-          { id: "laundry", label: `Laundry${items.filter(i => i.inLaundry).length ? ` (${items.filter(i => i.inLaundry).length})` : ""}`, icon: "\uD83E\uDDFA" },
-          { id: "surpriseSetup", label: "Surprise Me", icon: "\uD83D\uDC0C" },
+          { id: "wardrobe", label: "Wardrobe", icon: NAV_ICONS.wardrobe },
+          ...(isAuthed ? [{ id: "add", label: "Add", icon: NAV_ICONS.add }] : []),
+          { id: "outfit", label: "Build Outfit", icon: NAV_ICONS.outfit },
+          { id: "savedOutfits", label: "Saved", icon: NAV_ICONS.saved },
+          { id: "laundry", label: `Laundry${items.filter(i => i.inLaundry).length ? ` (${items.filter(i => i.inLaundry).length})` : ""}`, icon: NAV_ICONS.laundry },
+          { id: "surpriseSetup", label: "Surprise Me", icon: NAV_ICONS.surprise },
         ].map(tab => (
           <button
             key={tab.id}
@@ -1806,7 +1807,8 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Crimson Moon */}
+                {/* Comfort Mode (Crimson Moon) \u2014 configurable */}
+                {COMFORT_MODE.enabled && (
                 <div
                   onClick={() => setCrimsonMoon(!crimsonMoon)}
                   style={{
@@ -1824,15 +1826,15 @@ export default function App() {
                       : "rgba(196,149,106,0.1)",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     fontSize: 18, transition: "all 0.3s ease",
-                  }}>{"\uD83C\uDF19"}</div>
+                  }}>{COMFORT_MODE.icon}</div>
                   <div>
                     <p style={{
                       fontSize: 13, margin: 0,
                       color: crimsonMoon ? "#e86b6b" : "#8a7a6a",
                       fontWeight: crimsonMoon ? 600 : 400,
-                    }}>Crimson Moon</p>
+                    }}>{COMFORT_MODE.name}</p>
                     <p style={{ fontSize: 10, margin: "2px 0 0", color: "#5a4a3a" }}>
-                      Comfort is queen. Cosy pieces prioritised {"\uD83D\uDC96"}
+                      {COMFORT_MODE.description}
                     </p>
                   </div>
                   <div style={{
@@ -1849,6 +1851,7 @@ export default function App() {
                     }} />
                   </div>
                 </div>
+                )}
               </>
             )}
 

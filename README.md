@@ -156,6 +156,35 @@ export const OUTFIT_RULES = {
 
 If you work from home in pyjamas and you're proud of it, remove "Pyjamas" from the exclusion list. The snail might judge you, but the app won't.
 
+### Navigation Icons
+
+```js
+export const NAV_ICONS = {
+  wardrobe: "spiral",   // Try: closet, shirt, hanger
+  add: "sparkles",
+  outfit: "dress",      // Try: suit, t-shirt, dog, wand
+  saved: "heart",
+  laundry: "basket",
+  surprise: "snail",
+};
+```
+
+The Build Outfit tab has a dress emoji by default. Change it to a suit, a t-shirt, a dog — whatever represents "getting dressed" to you.
+
+### Comfort Mode
+
+```js
+export const COMFORT_MODE = {
+  enabled: true,         // Set false to hide entirely
+  name: "Crimson Moon",  // Rename: "Soft Day", "Duvet Energy", "Spoon Day"
+  icon: "crescent_moon",
+  description: "Comfort is queen. Cosy pieces prioritised.",
+  comfortVibes: ["Cosy Cocoon", "Everyday", "Day Off Staying In"],
+};
+```
+
+A toggle on the Surprise Me page that prioritises comfort-first items. Originally designed for period days but useful for anyone having a low-energy, high-cosy day. Rename it, change the icon, or set `enabled: false` to hide it completely.
+
 ### Auth
 
 ```js

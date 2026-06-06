@@ -150,6 +150,32 @@ export const OUTFIT_RULES = {
   cosyVibes: ["Cosy Cocoon", "Codeineificated", "Day Off Staying In"],
 };
 
+// ─── Navigation Icons ───
+// Customise the emoji on each tab. A guy might want a suit, a dog
+// person might want a poodle. Make them yours.
+export const NAV_ICONS = {
+  wardrobe: "🌀",
+  add: "✨",
+  outfit: "👗",     // Try: 🤵 👔 🐕 🧥 🪄
+  saved: "💖",
+  laundry: "🧺",
+  surprise: "🐌",
+};
+
+// ─── Comfort Mode (Crimson Moon) ───
+// A toggle that prioritises comfort-first items. Originally designed
+// for period days but useful for anyone having a low-energy, high-cosy
+// day. Set enabled: false to hide it entirely. Rename it to whatever
+// fits — "Soft Day", "Comfort Mode", "Duvet Energy", "Spoon Day".
+export const COMFORT_MODE = {
+  enabled: true,
+  name: "Crimson Moon",
+  icon: "🌙",
+  description: "Comfort is queen. Cosy pieces prioritised.",
+  // Which vibes count as "comfort" items
+  comfortVibes: ["Cosy Cocoon", "Everyday", "Codeineificated", "Day Off Staying In"],
+};
+
 // ─── Auth ───
 // The secret URL path for device authentication.
 // Visit this URL once per device to get edit access.
