@@ -94,6 +94,7 @@ export async function fetchAllData() {
       items: data.items || [],
       outfits: data.outfits || [],
       customColours: data.customColours || [],
+      weeklyPicks: data.weeklyPicks || [],
       fromServer: true,
     };
   }
@@ -102,6 +103,7 @@ export async function fetchAllData() {
     items: loadItems(),
     outfits: loadOutfits(),
     customColours: loadCustomColours(),
+    weeklyPicks: [],
     fromServer: false,
   };
 }
@@ -131,6 +133,31 @@ export async function updateOutfitOnServer(outfit) {
 }
 export async function removeOutfitFromServer(id) {
   return await apiDelete(`/outfits/${id}`);
+}
+
+// Weekly Picks
+export async function getWeeklyPicks() {
+  return await apiGet('/weekly-picks') || [];
+}
+export async function createWeeklyCategory(cat) {
+  const res = await apiPost('/weekly-picks/categories', cat);
+  return res;
+}
+export async function deleteWeeklyCategory(id) {
+  return await apiDelete(`/weekly-picks/categories/${id}`);
+}
+export async function addWeeklyItem(catId, item) {
+  const res = await apiPost(`/weekly-picks/categories/${catId}/items`, item);
+  return res;
+}
+export async function updateWeeklyItem(catId, item) {
+  return await apiPut(`/weekly-picks/categories/${catId}/items/${item.id}`, item);
+}
+export async function deleteWeeklyItem(catId, itemId) {
+  return await apiDelete(`/weekly-picks/categories/${catId}/items/${itemId}`);
+}
+export async function toggleWeeklyItem(catId, itemId) {
+  return await apiPost(`/weekly-picks/categories/${catId}/items/${itemId}/toggle`, {});
 }
 
 // Laundry

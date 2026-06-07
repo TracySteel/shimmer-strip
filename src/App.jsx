@@ -5,6 +5,7 @@ import {
   addOutfitToServer, updateOutfitOnServer, removeOutfitFromServer,
   addColourToServer, removeColourFromServer,
   toggleLaundryOnServer, laundryDoneOnServer,
+  getWeeklyPicks, createWeeklyCategory, addWeeklyItem, toggleWeeklyItem, deleteWeeklyItem,
 } from "./storage.js";
 import { COLOURS, getAllColours, getColourObj, outfitColourScore, loadCustomColours, saveCustomColours, guessWarmth } from "./colours.js";
 import { generateBestOutfit, generateChaosOutfit } from "./outfitEngine.js";
@@ -283,6 +284,13 @@ export default function App() {
   const [editingOutfitId, setEditingOutfitId] = useState(null);
   const [outfitSourceFilter, setOutfitSourceFilter] = useState("All");
 
+  // Weekly Picks
+  const [weeklyPicks, setWeeklyPicks] = useState([]);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [showAddWeeklyItem, setShowAddWeeklyItem] = useState(null); // catId or null
+  const [newWeeklyItem, setNewWeeklyItem] = useState({ name: "", colourFamily: "", type: "Opaque", description: "" });
+
   // Build outfit state
   const [editingBuildOutfit, setEditingBuildOutfit] = useState(null); // null or { id, name, vibes, weatherTags, source }
   const [buildFilter, setBuildFilter] = useState({ category: "All", colour: "All" });
@@ -310,12 +318,14 @@ export default function App() {
       setItems(data.items);
       setSavedOutfits(data.outfits);
       setCustomColours(data.customColours);
+      if (data.weeklyPicks) setWeeklyPicks(data.weeklyPicks);
       if (!data.fromServer) {
         showToast("Offline — changes won't sync until reconnected \uD83C\uDF00");
       }
     });
-    // Check auth from server
+    // Check auth + load weekly picks
     fetch("/api/auth").then(r => r.json()).then(d => setIsAuthed(d.authenticated)).catch(() => {});
+    getWeeklyPicks().then(wp => setWeeklyPicks(wp || []));
   }, []);
 
   // Keep localStorage cache in sync with React state on every change.
@@ -775,6 +785,7 @@ export default function App() {
           { id: "outfit", label: "Build Outfit", icon: NAV_ICONS.outfit },
           { id: "savedOutfits", label: "Saved", icon: NAV_ICONS.saved },
           { id: "laundry", label: `Laundry${items.filter(i => i.inLaundry).length ? ` (${items.filter(i => i.inLaundry).length})` : ""}`, icon: NAV_ICONS.laundry },
+          ...(weeklyPicks.length > 0 || isAuthed ? [{ id: "weeklyPicks", label: "Weekly", icon: "💅" }] : []),
           { id: "surpriseSetup", label: "Surprise Me", icon: NAV_ICONS.surprise },
         ].map(tab => (
           <button
@@ -1721,6 +1732,195 @@ export default function App() {
                 </>
               );
             })()}
+          </div>
+        )}
+
+        {/* ═══ WEEKLY PICKS ═══ */}
+        {view === "weeklyPicks" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 16, color: "#c4956a", margin: 0, letterSpacing: 2, textTransform: "uppercase", fontWeight: 400 }}>
+                {"💅"} Weekly Picks
+              </h2>
+              {isAuthed && !showNewCategory && (
+                <button onClick={() => setShowNewCategory(true)} style={{
+                  padding: "6px 14px", background: "rgba(196,149,106,0.2)",
+                  border: "1px solid rgba(196,149,106,0.3)", borderRadius: 20,
+                  color: "#c4956a", fontSize: 11, fontFamily: "inherit", cursor: "pointer", letterSpacing: 1,
+                }}>+ Category</button>
+              )}
+            </div>
+
+            {/* New category form */}
+            {showNewCategory && (
+              <div style={{
+                background: "rgba(196,149,106,0.06)", border: "1px solid rgba(196,149,106,0.15)",
+                borderRadius: 12, padding: 14, marginBottom: 16,
+              }}>
+                <input type="text" value={newCategoryName}
+                  onChange={e => setNewCategoryName(e.target.value)}
+                  placeholder="Category name (e.g. Nail Polish, Watches...)"
+                  style={{ ...inputStyle, marginBottom: 10, padding: "8px 12px", fontSize: 12 }}
+                />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={async () => {
+                    if (!newCategoryName.trim()) return;
+                    const res = await createWeeklyCategory({ name: newCategoryName.trim(), overlaySupport: false });
+                    if (res) {
+                      setWeeklyPicks(prev => [...prev, res.category || { id: Date.now(), name: newCategoryName.trim(), items: [] }]);
+                      showToast(`${newCategoryName.trim()} created! ✨`);
+                    }
+                    setNewCategoryName("");
+                    setShowNewCategory(false);
+                  }} style={{
+                    flex: 1, padding: 10, background: "rgba(196,149,106,0.2)",
+                    border: "1px solid rgba(196,149,106,0.3)", borderRadius: 10,
+                    color: "#c4956a", fontSize: 11, fontFamily: "inherit", cursor: "pointer",
+                  }}>Create {"✨"}</button>
+                  <button onClick={() => { setShowNewCategory(false); setNewCategoryName(""); }} style={{
+                    padding: "10px 14px", background: "rgba(196,149,106,0.06)",
+                    border: "1px solid rgba(196,149,106,0.1)", borderRadius: 10,
+                    color: "#8a7a6a", fontSize: 11, fontFamily: "inherit", cursor: "pointer",
+                  }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {weeklyPicks.length === 0 && !showNewCategory && (
+              <div style={{ textAlign: "center", padding: "60px 20px", opacity: 0.6 }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>{"💅"}</div>
+                <p style={{ fontSize: 16, color: "#8a7a6a", marginBottom: 8 }}>No weekly picks yet</p>
+                <p style={{ fontSize: 13, color: "#6a5a4a" }}>
+                  Create a category for things you rotate weekly — nail polish, watches, bags, whatever you care about!
+                </p>
+              </div>
+            )}
+
+            {/* Category sections */}
+            {weeklyPicks.map(cat => {
+              const activeItems = cat.items.filter(i => i.active);
+              return (
+                <div key={cat.id} style={{
+                  background: "rgba(196,149,106,0.04)",
+                  border: "1px solid rgba(196,149,106,0.1)",
+                  borderRadius: 16, padding: 16, marginBottom: 16,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 14, color: "#c4956a", margin: 0, letterSpacing: 1, fontWeight: 600 }}>
+                      {cat.name} ({cat.items.length})
+                    </h3>
+                    {isAuthed && (
+                      <button onClick={() => setShowAddWeeklyItem(showAddWeeklyItem === cat.id ? null : cat.id)} style={{
+                        padding: "4px 10px", background: "rgba(196,149,106,0.15)",
+                        border: "1px solid rgba(196,149,106,0.2)", borderRadius: 14,
+                        color: "#c4956a", fontSize: 10, fontFamily: "inherit", cursor: "pointer",
+                      }}>{showAddWeeklyItem === cat.id ? "Cancel" : "+ Add"}</button>
+                    )}
+                  </div>
+
+                  {/* Currently using */}
+                  {activeItems.length > 0 && (
+                    <div style={{
+                      background: "rgba(196,149,106,0.1)", borderRadius: 10,
+                      padding: "8px 12px", marginBottom: 12, fontSize: 12, color: "#d4c4b0",
+                    }}>
+                      {"✨"} Currently using: <strong>{activeItems.map(i => i.name).join(" + ")}</strong>
+                    </div>
+                  )}
+
+                  {/* Add item form */}
+                  {showAddWeeklyItem === cat.id && (
+                    <div style={{
+                      background: "rgba(196,149,106,0.06)", border: "1px solid rgba(196,149,106,0.15)",
+                      borderRadius: 10, padding: 12, marginBottom: 12,
+                    }}>
+                      <input type="text" value={newWeeklyItem.name}
+                        onChange={e => setNewWeeklyItem(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Name" style={{ ...inputStyle, marginBottom: 8, padding: "6px 10px", fontSize: 11 }}
+                      />
+                      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                        <input type="text" value={newWeeklyItem.colourFamily}
+                          onChange={e => setNewWeeklyItem(prev => ({ ...prev, colourFamily: e.target.value }))}
+                          placeholder="Colour family" style={{ ...inputStyle, marginBottom: 0, padding: "6px 10px", fontSize: 11, flex: 1 }}
+                        />
+                        <select value={newWeeklyItem.type}
+                          onChange={e => setNewWeeklyItem(prev => ({ ...prev, type: e.target.value }))}
+                          style={{ ...selectStyle, minWidth: 90 }}
+                        >
+                          <option value="Opaque">Opaque</option>
+                          <option value="Shimmer">Shimmer</option>
+                          <option value="Metallic">Metallic</option>
+                          <option value="Translucent">Translucent</option>
+                          <option value="Overlay">Overlay</option>
+                        </select>
+                      </div>
+                      <input type="text" value={newWeeklyItem.description}
+                        onChange={e => setNewWeeklyItem(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Description (optional)" style={{ ...inputStyle, marginBottom: 8, padding: "6px 10px", fontSize: 11 }}
+                      />
+                      <button onClick={async () => {
+                        if (!newWeeklyItem.name.trim()) { showToast("Give it a name! 🐌"); return; }
+                        const res = await addWeeklyItem(cat.id, newWeeklyItem);
+                        if (res) {
+                          setWeeklyPicks(prev => prev.map(c => c.id === cat.id
+                            ? { ...c, items: [...c.items, res.item || { ...newWeeklyItem, id: Date.now(), active: false }] }
+                            : c
+                          ));
+                          showToast(`${newWeeklyItem.name} added! ✨`);
+                        }
+                        setNewWeeklyItem({ name: "", colourFamily: "", type: "Opaque", description: "" });
+                      }} style={{
+                        width: "100%", padding: 8, background: "rgba(196,149,106,0.2)",
+                        border: "1px solid rgba(196,149,106,0.3)", borderRadius: 10,
+                        color: "#c4956a", fontSize: 11, fontFamily: "inherit", cursor: "pointer",
+                      }}>Add {"✨"}</button>
+                    </div>
+                  )}
+
+                  {/* Item grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+                    {cat.items.map(item => (
+                      <div key={item.id}
+                        onClick={isAuthed ? async () => {
+                          const prev = [...weeklyPicks];
+                          // Optimistic toggle
+                          setWeeklyPicks(wps => wps.map(c => {
+                            if (c.id !== cat.id) return c;
+                            const isOverlay = item.type === "Overlay";
+                            return {
+                              ...c,
+                              items: c.items.map(i => {
+                                if (i.id === item.id) return { ...i, active: !i.active };
+                                if (!item.active && !isOverlay && i.type !== "Overlay") return { ...i, active: false };
+                                if (!item.active && isOverlay && i.type === "Overlay") return { ...i, active: false };
+                                return i;
+                              }),
+                            };
+                          }));
+                          const ok = await toggleWeeklyItem(cat.id, item.id);
+                          if (!ok) setWeeklyPicks(prev);
+                        } : undefined}
+                        style={{
+                          background: item.active ? "rgba(196,149,106,0.18)" : "rgba(196,149,106,0.04)",
+                          border: `1px solid ${item.active ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)"}`,
+                          borderRadius: 10, padding: 10, cursor: isAuthed ? "pointer" : "default",
+                          transition: "all 0.3s ease", textAlign: "center",
+                        }}
+                      >
+                        {item.active && <div style={{ fontSize: 8, color: "#c4956a", marginBottom: 4, letterSpacing: 1, textTransform: "uppercase" }}>{"✨"} active</div>}
+                        <p style={{ fontSize: 12, color: "#d4c4b0", margin: "0 0 2px", fontWeight: item.active ? 600 : 400 }}>{item.name}</p>
+                        <p style={{ fontSize: 9, color: "#8a7a6a", margin: 0 }}>
+                          {item.colourFamily}{item.type !== "Opaque" ? ` · ${item.type}` : ""}
+                        </p>
+                        {item.description && (
+                          <p style={{ fontSize: 9, color: "#6a5a4a", margin: "2px 0 0", fontStyle: "italic" }}>{item.description}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

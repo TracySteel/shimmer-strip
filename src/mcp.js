@@ -360,6 +360,11 @@ export function createMcpServer(readData, writeData, getWeather) {
         },
       },
       {
+        name: "get_weekly_picks",
+        description: "Get weekly accessory categories (e.g. nail polish, watches) with their currently active items. Use this to coordinate outfit suggestions with what's currently being worn/used this week.",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
         name: "suggest_outfit",
         description: "Generate an algorithmically suggested outfit. Uses colour harmony, weather awareness, and structural rules (one top + one bottom + shoes, or a dress/jumpsuit). Returns outfit items with colour score.",
         inputSchema: {
@@ -470,6 +475,20 @@ export function createMcpServer(readData, writeData, getWeather) {
           return { content: [{ type: "text", text: "Weather data unavailable — Open-Meteo might be down. You can still suggest outfits using manual weather tags." }] };
         }
         return { content: [{ type: "text", text: JSON.stringify(weather, null, 2) }] };
+      }
+
+      case "get_weekly_picks": {
+        const data = readData();
+        const picks = (data.weeklyPicks || []).map(cat => ({
+          category: cat.name,
+          active: cat.items.filter(i => i.active && i.type !== "Overlay").map(i => ({
+            name: i.name, colourFamily: i.colourFamily, type: i.type, description: i.description,
+          }))[0] || null,
+          overlay: cat.items.filter(i => i.active && i.type === "Overlay").map(i => ({
+            name: i.name, description: i.description,
+          }))[0] || null,
+        })).filter(c => c.active || c.overlay);
+        return { content: [{ type: "text", text: JSON.stringify(picks.length ? { weeklyPicks: picks } : { weeklyPicks: [], note: "No weekly picks set. User hasn't created any categories or toggled any items as active." }, null, 2) }] };
       }
 
       case "suggest_outfit": {

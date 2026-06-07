@@ -25,6 +25,7 @@ const DEFAULT_DATA = {
   items: [],
   outfits: [],
   customColours: [],
+  weeklyPicks: [],
   settings: {},
 };
 
@@ -256,6 +257,86 @@ app.delete('/api/colours/:name', (req, res) => {
   data.customColours = data.customColours.filter(c => c.name !== req.params.name);
   writeData(data);
   res.json({ ok: true });
+});
+
+// ── Weekly Picks ──
+app.get('/api/weekly-picks', (req, res) => {
+  const data = readData();
+  res.json(data.weeklyPicks || []);
+});
+
+app.post('/api/weekly-picks/categories', (req, res) => {
+  const data = readData();
+  if (!data.weeklyPicks) data.weeklyPicks = [];
+  const cat = { id: Date.now(), name: req.body.name, overlaySupport: req.body.overlaySupport || false, items: [] };
+  data.weeklyPicks.push(cat);
+  writeData(data);
+  res.json({ ok: true, category: cat });
+});
+
+app.delete('/api/weekly-picks/categories/:id', (req, res) => {
+  const data = readData();
+  data.weeklyPicks = (data.weeklyPicks || []).filter(c => String(c.id) !== req.params.id);
+  writeData(data);
+  res.json({ ok: true });
+});
+
+app.post('/api/weekly-picks/categories/:catId/items', (req, res) => {
+  const data = readData();
+  const cat = (data.weeklyPicks || []).find(c => String(c.id) === req.params.catId);
+  if (!cat) return res.status(404).json({ error: 'Category not found' });
+  const item = extractItemPhoto({ ...req.body, id: Date.now(), active: false });
+  cat.items.push(item);
+  writeData(data);
+  res.json({ ok: true, item });
+});
+
+app.put('/api/weekly-picks/categories/:catId/items/:itemId', (req, res) => {
+  const data = readData();
+  const cat = (data.weeklyPicks || []).find(c => String(c.id) === req.params.catId);
+  if (!cat) return res.status(404).json({ error: 'Category not found' });
+  const idx = cat.items.findIndex(i => String(i.id) === req.params.itemId);
+  if (idx === -1) return res.status(404).json({ error: 'Item not found' });
+  cat.items[idx] = extractItemPhoto({ ...cat.items[idx], ...req.body });
+  writeData(data);
+  res.json({ ok: true, item: cat.items[idx] });
+});
+
+app.delete('/api/weekly-picks/categories/:catId/items/:itemId', (req, res) => {
+  const data = readData();
+  const cat = (data.weeklyPicks || []).find(c => String(c.id) === req.params.catId);
+  if (!cat) return res.status(404).json({ error: 'Category not found' });
+  cat.items = cat.items.filter(i => String(i.id) !== req.params.itemId);
+  writeData(data);
+  res.json({ ok: true });
+});
+
+// Toggle active — deactivates others (unless overlay)
+app.post('/api/weekly-picks/categories/:catId/items/:itemId/toggle', (req, res) => {
+  const data = readData();
+  const cat = (data.weeklyPicks || []).find(c => String(c.id) === req.params.catId);
+  if (!cat) return res.status(404).json({ error: 'Category not found' });
+  const item = cat.items.find(i => String(i.id) === req.params.itemId);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+
+  const isOverlay = item.type === 'Overlay';
+  const wasActive = item.active;
+
+  if (wasActive) {
+    item.active = false;
+  } else {
+    // Deactivate others (unless this is an overlay or the other is an overlay)
+    if (!isOverlay) {
+      cat.items.forEach(i => { if (i.type !== 'Overlay') i.active = false; });
+    } else {
+      // Overlay: deactivate other overlays only
+      cat.items.forEach(i => { if (i.type === 'Overlay') i.active = false; });
+    }
+    item.active = true;
+  }
+
+  writeData(data);
+  res.json({ ok: true, active: item.active });
 });
 
 // ── Weather API (also used by MCP) ──
