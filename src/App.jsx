@@ -289,6 +289,7 @@ export default function App() {
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showAddWeeklyItem, setShowAddWeeklyItem] = useState(null); // catId or null
+  const [weeklyColourFilter, setWeeklyColourFilter] = useState("All");
   const [newWeeklyItem, setNewWeeklyItem] = useState({ name: "", colourFamily: "", type: "Opaque", description: "" });
 
   // Build outfit state
@@ -1877,13 +1878,60 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* Colour family filter */}
+                  {cat.items.length > 6 && (() => {
+                    const families = [...new Set(cat.items.map(i => i.colourFamily).filter(Boolean))].sort();
+                    return (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
+                        <button onClick={() => setWeeklyColourFilter("All")} style={{
+                          padding: "3px 10px", borderRadius: 14, border: "1px solid",
+                          fontSize: 9, cursor: "pointer", fontFamily: "inherit",
+                          background: weeklyColourFilter === "All" ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
+                          borderColor: weeklyColourFilter === "All" ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
+                          color: weeklyColourFilter === "All" ? "#c4956a" : "#8a7a6a",
+                        }}>All</button>
+                        {families.map(f => {
+                          const count = cat.items.filter(i => i.colourFamily === f).length;
+                          return (
+                            <button key={f} onClick={() => setWeeklyColourFilter(weeklyColourFilter === f ? "All" : f)} style={{
+                              padding: "3px 10px", borderRadius: 14, border: "1px solid",
+                              fontSize: 9, cursor: "pointer", fontFamily: "inherit",
+                              display: "flex", alignItems: "center", gap: 4,
+                              background: weeklyColourFilter === f ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.06)",
+                              borderColor: weeklyColourFilter === f ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.1)",
+                              color: weeklyColourFilter === f ? "#c4956a" : "#8a7a6a",
+                            }}>
+                              <span style={{
+                                width: 8, height: 8, borderRadius: "50%", display: "inline-block",
+                                background: {
+                                  Pink:"#d4748a", Red:"#c43a3a", Coral:"#e8a87c", Purple:"#6a3d7a",
+                                  Blue:"#4a6a8a", Teal:"#2a7a7a", Green:"#4a7a4a", Neutral:"#a09080",
+                                  Yellow:"#d4b83a", Fuchsia:"#c43a7a", Dark:"#2a2a2a", Metallic:"#c4a43a",
+                                  Shimmer:"#7ab0c4", Overlay:"linear-gradient(135deg,#c4956a,#7ab0c4)",
+                                }[f] || "#8a7a6a",
+                                border: "1px solid rgba(255,255,255,0.2)",
+                              }} />
+                              {f} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
                   {/* Item grid */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
-                    {cat.items.map(item => (
+                    {cat.items.filter(i => weeklyColourFilter === "All" || i.colourFamily === weeklyColourFilter).map(item => {
+                      const swatchColour = {
+                        Pink:"#d4748a", Red:"#c43a3a", Coral:"#e8a87c", Purple:"#6a3d7a",
+                        Blue:"#4a6a8a", Teal:"#2a7a7a", Green:"#4a7a4a", Neutral:"#a09080",
+                        Yellow:"#d4b83a", Fuchsia:"#c43a7a", Dark:"#2a2a2a", Metallic:"#c4a43a",
+                        Shimmer:"#7ab0c4", Overlay:"#c4956a",
+                      }[item.colourFamily] || "#8a7a6a";
+                      return (
                       <div key={item.id}
                         onClick={isAuthed ? async () => {
                           const prev = [...weeklyPicks];
-                          // Optimistic toggle
                           setWeeklyPicks(wps => wps.map(c => {
                             if (c.id !== cat.id) return c;
                             const isOverlay = item.type === "Overlay";
@@ -1908,6 +1956,12 @@ export default function App() {
                         }}
                       >
                         {item.active && <div style={{ fontSize: 8, color: "#c4956a", marginBottom: 4, letterSpacing: 1, textTransform: "uppercase" }}>{"✨"} active</div>}
+                        <div style={{
+                          width: 20, height: 20, borderRadius: "50%", margin: "0 auto 6px",
+                          background: item.type === "Overlay" ? `linear-gradient(135deg, ${swatchColour}, #7ab0c4)` : swatchColour,
+                          border: "2px solid rgba(255,255,255,0.15)",
+                          boxShadow: item.active ? `0 0 8px ${swatchColour}50` : "none",
+                        }} />
                         <p style={{ fontSize: 12, color: "#d4c4b0", margin: "0 0 2px", fontWeight: item.active ? 600 : 400 }}>{item.name}</p>
                         <p style={{ fontSize: 9, color: "#8a7a6a", margin: 0 }}>
                           {item.colourFamily}{item.type !== "Opaque" ? ` · ${item.type}` : ""}
@@ -1916,7 +1970,8 @@ export default function App() {
                           <p style={{ fontSize: 9, color: "#6a5a4a", margin: "2px 0 0", fontStyle: "italic" }}>{item.description}</p>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
