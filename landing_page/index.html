@@ -440,6 +440,125 @@
 
   .footer-snail { font-size: 1.5rem; margin-bottom: 0.75rem; }
 
+  /* === COMPARISON TABLE === */
+  .compare-section {
+    background: white;
+    max-width: 100%;
+    padding: 5rem 2rem;
+  }
+
+  .compare-inner {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .compare-section .section-label { color: var(--text-dark); opacity: 0.5; }
+  .compare-section h2 { color: var(--text-dark); }
+  .compare-section .section-text { color: var(--text-dark); opacity: 0.7; margin-bottom: 3rem; }
+
+  .compare-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 3rem;
+    border-radius: 16px;
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+
+  .compare-table {
+    width: 100%;
+    min-width: 700px;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  .compare-table thead { background: var(--shimmer-dark-lighter); color: var(--shimmer-cream); }
+
+  .compare-table th {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .compare-table .feature-col { width: 18%; }
+  .compare-table .shimmer-col { width: 34%; }
+  .compare-table .others-col { width: 24%; }
+  .compare-table .oss-col { width: 24%; }
+
+  .compare-table td {
+    padding: 1rem 1.25rem;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    color: var(--text-dark);
+  }
+
+  .compare-table .feature-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .compare-table .shimmer-cell { background: rgba(196,149,106,0.04); }
+
+  .compare-table .shimmer-cell .check {
+    color: var(--shimmer-gold);
+    font-weight: 700;
+    margin-right: 0.25rem;
+  }
+
+  .compare-table .others-cell { opacity: 0.7; }
+  .compare-table .oss-cell { opacity: 0.5; }
+
+  .compare-table tbody tr:hover { background: rgba(196,149,106,0.03); }
+
+  .compare-callouts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .callout-card {
+    padding: 2rem;
+    border-radius: 16px;
+    background: var(--shimmer-cream-soft);
+    border: 1px solid rgba(196,149,106,0.1);
+    transition: all 0.3s ease;
+  }
+
+  .callout-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(196,149,106,0.1);
+  }
+
+  .callout-icon { font-size: 2rem; margin-bottom: 1rem; }
+
+  .callout-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-dark);
+    font-weight: 600;
+  }
+
+  .callout-card p {
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    opacity: 0.7;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 768px) {
+    .compare-table-wrap {
+      margin-left: -1rem;
+      margin-right: -1rem;
+      border-radius: 0;
+    }
+    .compare-table th,
+    .compare-table td {
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem;
+    }
+  }
+
   .origin-note {
     font-style: italic;
     color: var(--text-muted);
@@ -450,9 +569,127 @@
     margin-left: auto;
     margin-right: auto;
   }
+
+  /* === NAV LOZENGES === */
+  .nav-lozenges {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: rgba(26,20,16,0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(196,149,106,0.1);
+    transform: translateY(-100%);
+    transition: transform 0.35s ease;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-lozenges.visible { transform: translateY(0); }
+
+  .nav-lozenges::-webkit-scrollbar { display: none; }
+
+  .nav-lozenge {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border-radius: 20px;
+    background: rgba(196,149,106,0.06);
+    border: 1px solid rgba(196,149,106,0.12);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-family: 'Quicksand', Georgia, serif;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .nav-lozenge:hover,
+  .nav-lozenge.active {
+    background: rgba(196,149,106,0.2);
+    border-color: rgba(196,149,106,0.3);
+    color: var(--shimmer-gold);
+  }
+
+  .nav-lozenge.cta-lozenge {
+    background: rgba(196,149,106,0.15);
+    border-color: rgba(196,149,106,0.25);
+    color: var(--shimmer-gold);
+    font-weight: 600;
+  }
+
+  .nav-lozenge.cta-lozenge:hover {
+    background: rgba(196,149,106,0.3);
+  }
+
+  /* === BACK TO TOP === */
+  .back-to-top {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(26,20,16,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(196,149,106,0.2);
+    color: var(--shimmer-gold);
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.35s ease;
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  }
+
+  .back-to-top.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .back-to-top:hover {
+    background: rgba(196,149,106,0.2);
+    border-color: rgba(196,149,106,0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(196,149,106,0.2);
+  }
+
+  @media (max-width: 600px) {
+    .nav-lozenges { gap: 5px; padding: 8px 12px; }
+    .nav-lozenge { padding: 6px 11px; font-size: 10px; }
+    .back-to-top { width: 40px; height: 40px; bottom: 18px; right: 18px; font-size: 18px; }
+  }
 </style>
 </head>
 <body>
+
+<!-- NAV LOZENGES -->
+<nav class="nav-lozenges" id="nav">
+  <a href="#about" class="nav-lozenge">About</a>
+  <a href="#features" class="nav-lozenge">Features</a>
+  <a href="#compare" class="nav-lozenge">Compare</a>
+  <a href="#ai" class="nav-lozenge">AI</a>
+  <a href="#snail" class="nav-lozenge">🐌 Snail</a>
+  <a href="https://github.com/TracySteel/shimmer-strip" class="nav-lozenge cta-lozenge" target="_blank">GitHub</a>
+</nav>
+
+<!-- BACK TO TOP -->
+<button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">🐌</button>
 
 <!-- HERO -->
 <section class="hero">
@@ -566,6 +803,138 @@
   </div>
 </section>
 
+<!-- COMPARISON TABLE -->
+<section class="compare-section" id="compare">
+  <div class="compare-inner">
+    <div class="section-label">How it compares</div>
+    <h2>Not another wardrobe app.<br>A different kind entirely.</h2>
+    <p class="section-text">We looked at every wardrobe app on the market. Here's what we found.</p>
+
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th class="feature-col">Feature</th>
+            <th class="shimmer-col">Shimmer Strip</th>
+            <th class="others-col">Mainstream Apps</th>
+            <th class="oss-col">Other Open Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="feature-name">AI Integration</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Open MCP — connect Claude, GPT, Gemini, or any LLM. You choose the engine.
+            </td>
+            <td class="others-cell">Proprietary black-box AI. No choice. No control.</td>
+            <td class="oss-cell">None, or basic local image tagging.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Weather Awareness</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Today + tomorrow's forecast. Personal temperature offset. Humidity adjustment. Your AI knows YOU run hot.
+            </td>
+            <td class="others-cell">Basic weather suggestions. No personal calibration.</td>
+            <td class="oss-cell">Manual tagging only.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Outfit Selection</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              AI picks outfits with reasoning. Snail's Pick for surprise. Chaos Mode for bold. Duplicates prevented.
+            </td>
+            <td class="others-cell">Basic "Dress Me" randomiser button.</td>
+            <td class="oss-cell">Static outfit building only.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Accessory Matching</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Weekly Picks system — nail polish, watches, bags, anything. AI coordinates your outfit with what's already on your nails.
+            </td>
+            <td class="others-cell">Clothes, shoes, and basic accessories only. No cross-category logic.</td>
+            <td class="oss-cell">No cross-category matching.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Storage Locations</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Tag where items live. Toggle locations off when inaccessible. AI only suggests what you can actually reach.
+            </td>
+            <td class="others-cell">Season filtering at most. No location awareness.</td>
+            <td class="oss-cell">No location logic.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Wear Tracking</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              "Wearing Today" button. Wear counts. Last worn dates. AI avoids repeats and surfaces neglected items.
+            </td>
+            <td class="others-cell">Some track wears. None feed data back to AI selection.</td>
+            <td class="oss-cell">Basic or none.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Laundry Awareness</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Items in the wash are excluded from suggestions. No more "that's in the laundry" disappointment.
+            </td>
+            <td class="others-cell">Rare. Most ignore laundry state entirely.</td>
+            <td class="oss-cell">Not available.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Customisation</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Single config file. Your name, your colours, your mascot, your categories. It's YOUR app.
+            </td>
+            <td class="others-cell">Their brand. Their colours. Their rules. In-app settings only.</td>
+            <td class="oss-cell">Environment variables and Docker configs.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Data Ownership</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Self-hosted. Your photos stay on your device. Your data is yours. Always.
+            </td>
+            <td class="others-cell">Your wardrobe photos on their servers. Their terms.</td>
+            <td class="oss-cell">Self-hosted — data is yours.</td>
+          </tr>
+          <tr>
+            <td class="feature-name">Price</td>
+            <td class="shimmer-cell">
+              <span class="check">✦</span>
+              Free. Open source. Forever.
+            </td>
+            <td class="others-cell">$5–15/month. Many cap free tiers at 100 items.</td>
+            <td class="oss-cell">Free.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="compare-callouts">
+      <div class="callout-card">
+        <div class="callout-icon">💅</div>
+        <h3>The Anchor Item Concept</h3>
+        <p>No commercial wardrobe app understands "anchor items" that aren't clothing. Shimmer Strip lets your AI see your nail polish, your watch, your bag — and build the week's outfits around what you're already wearing. Incredibly practical. Nobody else does this.</p>
+      </div>
+      <div class="callout-card">
+        <div class="callout-icon">🏠</div>
+        <h3>True Location Intelligence</h3>
+        <p>Other apps filter by season. Shimmer Strip knows your striped jumper is in the attic, your partner's wardrobe is inaccessible at night, and your winter coat is in storage. AI only suggests what you can actually reach, right now.</p>
+      </div>
+      <div class="callout-card">
+        <div class="callout-icon">🔓</div>
+        <h3>No Monetisation Walls</h3>
+        <p>Most wardrobe apps gained popularity by being free, then limited users to 100 items. Shimmer Strip is open source, self-hosted, and free forever. Your wardrobe shouldn't have a paywall.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- AI CONVERSATION -->
 <section class="ai-section" id="ai">
   <div class="ai-inner">
@@ -622,41 +991,6 @@
   </div>
 </section>
 
-<!-- HOW IT'S DIFFERENT -->
-<section class="difference-section" id="difference">
-  <div class="difference-inner">
-    <div class="section-label">What makes it different</div>
-    <h2>This isn't our app with your clothes in it. It's your app.</h2>
-
-    <div class="comparison">
-      <div class="comparison-card others">
-        <h3>Every other wardrobe app</h3>
-        <ul>
-          <li>Their brand, their name, their colours</li>
-          <li>Your data on their servers</li>
-          <li>$5-15 per month subscription</li>
-          <li>No AI outfit selection</li>
-          <li>No weather awareness</li>
-          <li>No personality</li>
-          <li>No snail</li>
-        </ul>
-      </div>
-      <div class="comparison-card shimmer">
-        <h3>The Shimmer Strip</h3>
-        <ul>
-          <li>Your name, your colours, your mascot</li>
-          <li>Your photos stay on your device</li>
-          <li>Free and open source, forever</li>
-          <li>AI picks outfits via MCP (8 tools)</li>
-          <li>Weather, wear tracking, favourites, nail polish</li>
-          <li>Chaos mode, laundry tracking, friend picks</li>
-          <li>The snail stays unless you replace it</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- TESTIMONIAL -->
 <section style="text-align: center; padding: 5rem 2rem;">
   <p style="font-size: clamp(1.1rem, 3vw, 1.4rem); font-style: italic; color: var(--text-warm); max-width: 600px; margin: 0 auto 1.5rem; line-height: 1.9;">"I don't have nothing to wear. I have everything to wear. That was the problem. This app stopped me wearing the same five things and started showing me the other two thousand."</p>
@@ -679,6 +1013,62 @@
   <p class="origin-note">Designed by an AI called Claude, built by an engineer called Ode, dreamed up by a woman with 2,000 items of clothing, 66 nail polishes, and a snail called Vrijdag.</p>
   <p class="origin-note">The snail stays. The snail always stays.</p>
 </footer>
+
+<script>
+(function() {
+  const nav = document.getElementById('nav');
+  const btn = document.getElementById('backToTop');
+  const lozenges = nav.querySelectorAll('.nav-lozenge[href^="#"]');
+  const sections = [];
+
+  lozenges.forEach(function(l) {
+    var el = document.querySelector(l.getAttribute('href'));
+    if (el) sections.push({ el: el, lozenge: l });
+  });
+
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      requestAnimationFrame(function() {
+        var y = window.scrollY;
+
+        // Show/hide nav after scrolling past hero
+        if (y > window.innerHeight * 0.7) {
+          nav.classList.add('visible');
+        } else {
+          nav.classList.remove('visible');
+        }
+
+        // Show/hide back to top
+        if (y > window.innerHeight * 1.2) {
+          btn.classList.add('visible');
+        } else {
+          btn.classList.remove('visible');
+        }
+
+        // Highlight active section lozenge
+        var current = '';
+        for (var i = 0; i < sections.length; i++) {
+          var top = sections[i].el.getBoundingClientRect().top;
+          if (top < window.innerHeight * 0.4) {
+            current = sections[i].lozenge.getAttribute('href');
+          }
+        }
+        lozenges.forEach(function(l) {
+          if (l.getAttribute('href') === current) {
+            l.classList.add('active');
+          } else {
+            l.classList.remove('active');
+          }
+        });
+
+        ticking = false;
+      });
+      ticking = true;
+    }
+  });
+})();
+</script>
 
 </body>
 </html>
