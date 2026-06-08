@@ -669,10 +669,108 @@
     box-shadow: 0 8px 30px rgba(196,149,106,0.2);
   }
 
+  /* === TIP THE SNAIL === */
+  .tip-snail {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px 10px 14px;
+    border-radius: 50px;
+    background: rgba(26,20,16,0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(196,149,106,0.2);
+    color: var(--shimmer-gold);
+    text-decoration: none;
+    font-family: 'Quicksand', Georgia, serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.4s ease;
+    pointer-events: none;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    overflow: visible;
+  }
+
+  .tip-snail.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  .tip-snail-emoji {
+    font-size: 22px;
+    display: inline-block;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .tip-snail:hover {
+    border-color: rgba(196,149,106,0.5);
+    box-shadow: 0 0 20px rgba(196,149,106,0.25), 0 8px 30px rgba(0,0,0,0.3);
+    transform: translateY(-3px);
+    background: rgba(42,32,24,0.95);
+  }
+
+  .tip-snail:hover .tip-snail-emoji {
+    transform: rotate(360deg);
+  }
+
+  .tip-snail-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  .tip-snail-sub {
+    font-size: 9px;
+    font-weight: 400;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+  }
+
+  /* Gold confetti burst */
+  .confetti-container {
+    position: fixed;
+    pointer-events: none;
+    z-index: 200;
+  }
+
+  .confetti {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    animation: confettiBurst 0.9s ease-out forwards;
+  }
+
+  @keyframes confettiBurst {
+    0% { opacity: 1; transform: translate(0, 0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0); }
+  }
+
+  @keyframes snailSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(720deg); }
+  }
+
+  .tip-snail-emoji.celebrating {
+    animation: snailSpin 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
   @media (max-width: 600px) {
     .nav-lozenges { gap: 5px; padding: 8px 12px; }
     .nav-lozenge { padding: 6px 11px; font-size: 10px; }
     .back-to-top { width: 40px; height: 40px; bottom: 18px; right: 18px; font-size: 18px; }
+    .tip-snail { bottom: 18px; left: 18px; padding: 8px 14px 8px 10px; font-size: 11px; }
+    .tip-snail-emoji { font-size: 18px; }
+    .tip-snail-sub { font-size: 8px; }
   }
 </style>
 </head>
@@ -687,6 +785,15 @@
   <a href="#snail" class="nav-lozenge">🐌 Snail</a>
   <a href="https://github.com/TracySteel/shimmer-strip" class="nav-lozenge cta-lozenge" target="_blank">GitHub</a>
 </nav>
+
+<!-- TIP THE SNAIL -->
+<a href="https://buymeacoffee.com/shimmergirl" target="_blank" class="tip-snail" id="tipSnail">
+  <span class="tip-snail-emoji" id="tipEmoji">🐌</span>
+  <span class="tip-snail-text">
+    Tip the Snail
+    <span class="tip-snail-sub">he can't hold a coffee but he likes gold</span>
+  </span>
+</a>
 
 <!-- BACK TO TOP -->
 <button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">🐌</button>
@@ -1016,56 +1123,84 @@
 
 <script>
 (function() {
-  const nav = document.getElementById('nav');
-  const btn = document.getElementById('backToTop');
-  const lozenges = nav.querySelectorAll('.nav-lozenge[href^="#"]');
-  const sections = [];
+  var nav = document.getElementById('nav');
+  var btn = document.getElementById('backToTop');
+  var tipSnail = document.getElementById('tipSnail');
+  var tipEmoji = document.getElementById('tipEmoji');
+  var lozenges = nav.querySelectorAll('.nav-lozenge[href^="#"]');
+  var sections = [];
 
   lozenges.forEach(function(l) {
     var el = document.querySelector(l.getAttribute('href'));
     if (el) sections.push({ el: el, lozenge: l });
   });
 
+  // Scroll handler: nav, back-to-top, tip snail, active section
   var ticking = false;
   window.addEventListener('scroll', function() {
     if (!ticking) {
       requestAnimationFrame(function() {
         var y = window.scrollY;
+        var pastHero = y > window.innerHeight * 0.7;
+        var deepScroll = y > window.innerHeight * 1.2;
 
-        // Show/hide nav after scrolling past hero
-        if (y > window.innerHeight * 0.7) {
-          nav.classList.add('visible');
-        } else {
-          nav.classList.remove('visible');
-        }
+        nav.classList.toggle('visible', pastHero);
+        btn.classList.toggle('visible', deepScroll);
+        tipSnail.classList.toggle('visible', pastHero);
 
-        // Show/hide back to top
-        if (y > window.innerHeight * 1.2) {
-          btn.classList.add('visible');
-        } else {
-          btn.classList.remove('visible');
-        }
-
-        // Highlight active section lozenge
         var current = '';
         for (var i = 0; i < sections.length; i++) {
-          var top = sections[i].el.getBoundingClientRect().top;
-          if (top < window.innerHeight * 0.4) {
+          if (sections[i].el.getBoundingClientRect().top < window.innerHeight * 0.4) {
             current = sections[i].lozenge.getAttribute('href');
           }
         }
         lozenges.forEach(function(l) {
-          if (l.getAttribute('href') === current) {
-            l.classList.add('active');
-          } else {
-            l.classList.remove('active');
-          }
+          l.classList.toggle('active', l.getAttribute('href') === current);
         });
 
         ticking = false;
       });
       ticking = true;
     }
+  });
+
+  // Gold confetti burst on tip click
+  var goldShades = ['#c4956a', '#d4a87a', '#e8c89a', '#f0d8a8', '#b8854a', '#dbb88a'];
+
+  tipSnail.addEventListener('click', function(e) {
+    // Spin the snail
+    tipEmoji.classList.remove('celebrating');
+    void tipEmoji.offsetWidth; // reflow to restart animation
+    tipEmoji.classList.add('celebrating');
+
+    // Burst confetti from click point
+    var rect = tipSnail.getBoundingClientRect();
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+
+    var container = document.createElement('div');
+    container.className = 'confetti-container';
+    container.style.left = cx + 'px';
+    container.style.top = cy + 'px';
+    document.body.appendChild(container);
+
+    for (var i = 0; i < 24; i++) {
+      var dot = document.createElement('div');
+      dot.className = 'confetti';
+      var angle = (Math.PI * 2 * i) / 24 + (Math.random() - 0.5) * 0.5;
+      var dist = 40 + Math.random() * 80;
+      var tx = Math.cos(angle) * dist;
+      var ty = Math.sin(angle) * dist - 20;
+      dot.style.setProperty('--tx', tx + 'px');
+      dot.style.setProperty('--ty', ty + 'px');
+      dot.style.background = goldShades[Math.floor(Math.random() * goldShades.length)];
+      dot.style.width = (4 + Math.random() * 5) + 'px';
+      dot.style.height = dot.style.width;
+      dot.style.animationDelay = (Math.random() * 0.15) + 's';
+      container.appendChild(dot);
+    }
+
+    setTimeout(function() { container.remove(); }, 1200);
   });
 })();
 </script>
