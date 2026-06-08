@@ -134,6 +134,9 @@ export async function updateOutfitOnServer(outfit) {
 export async function removeOutfitFromServer(id) {
   return await apiDelete(`/outfits/${id}`);
 }
+export async function toggleWearToday(outfitId) {
+  return await apiPost(`/outfits/${outfitId}/wear-today`, {});
+}
 
 // Weekly Picks
 export async function getWeeklyPicks() {
@@ -158,6 +161,17 @@ export async function deleteWeeklyItem(catId, itemId) {
 }
 export async function toggleWeeklyItem(catId, itemId) {
   return await apiPost(`/weekly-picks/categories/${catId}/items/${itemId}/toggle`, {});
+}
+
+// Favourites
+export async function toggleItemFavourite(id) {
+  return await apiPost(`/items/${id}/favourite`, {});
+}
+export async function toggleOutfitFavourite(id) {
+  return await apiPost(`/outfits/${id}/favourite`, {});
+}
+export async function toggleWeeklyItemFavourite(catId, itemId) {
+  return await apiPost(`/weekly-picks/categories/${catId}/items/${itemId}/favourite`, {});
 }
 
 // Laundry

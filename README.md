@@ -2,7 +2,7 @@
 
 **Your wardrobe. Your AI. Your snail.**
 
-A self-hosted wardrobe organiser with weather-aware outfit suggestions, multiple suggestion modes, photo uploads, storage location tracking, and a sassy snail who names your outfits.
+A self-hosted wardrobe organiser with weather-aware outfit suggestions, AI integration via MCP, wear tracking, favourites, a nail polish collection manager, and a sassy snail who names your outfits.
 
 No subscriptions. No data harvesting. No cloud dependency. Just your clothes, your app, your rules.
 
@@ -23,7 +23,12 @@ No subscriptions. No data harvesting. No cloud dependency. Just your clothes, yo
   - Chaos Mode — unexpected colour combinations, bold choices, chaos energy (clothes included, nudity excluded)
   - Surprise Me — the snail decides, and the snail has opinions
 - **Save outfits** — name and save any combination, including snail-generated and chaos-generated outfits
+- **Duplicate detection** — same core items (top + bottom + shoes) won't save twice. Different necklace doesn't make it a new outfit. The snail tried.
 - **Auto-naming** — the snail names its own outfits. Chaos mode names its own outfits. They're always entertaining.
+- **Wearing Today** — mark what you're wearing right now with a single tap. Only one outfit can be worn at a time. Your AI sees it instantly.
+- **Wear tracking** — counts how many times each outfit and item has been worn. Same-day idempotent — toggle on and off without double-counting.
+- **Favourites** — star your favourite items, outfits, and nail polishes. Filter by favourites anywhere.
+- **Weekly Picks** — a collection manager for rotating accessories. Built for nail polish (with colour family filters and active/inactive toggle) but works for anything you cycle through weekly.
 - **Storage locations** — tag where each item lives in your home, with an accessibility toggle for when certain areas are off-limits
 - **Laundry tracking** — items in the wash are excluded from suggestions
 - **Mirror selfie lookbook** — attach a photo of yourself wearing the outfit to build a visual history
@@ -206,11 +211,15 @@ The app exposes an MCP (Model Context Protocol) endpoint at `/mcp` for AI outfit
 | Tool | What it does |
 |------|------|
 | `get_wardrobe_summary` | Category/colour/vibe overview (tiny response) |
-| `get_wardrobe` | Filtered item query — always use filters! |
+| `get_wardrobe` | Filtered item query — by category, colour, location, vibe, weather, favourites |
 | `get_weather` | Today or tomorrow's weather for outfit planning |
 | `suggest_outfit` | Algorithm-generated outfit with weather + vibe awareness |
-| `save_outfit` | Save a named outfit with source tracking |
-| `get_outfits` | All saved outfit combinations |
+| `save_outfit` | Save a named outfit with source tracking and duplicate detection |
+| `get_outfits` | Filtered outfit query — by source, weather, worn status, favourites. Summary mode by default, full detail on demand |
+| `get_currently_wearing` | Quick check: current outfit + current nail polish in one tiny call |
+| `get_weekly_picks` | Browse nail polish collection (or any weekly rotating accessories) |
+
+The MCP is designed for token efficiency at scale. `get_outfits` returns lightweight summaries by default (name, source, item count, wear stats) — your AI only pulls full item details when it needs them. Browse 250 outfits without destroying your context window.
 
 ### The Dream Setup
 
@@ -219,6 +228,17 @@ Your AI checks the weather, browses your wardrobe category by category, picks an
 ![Claude picking an outfit via MCP](docs/screenshots/chat_img_2.PNG)
 
 Any AI that supports MCP can connect — Claude, ChatGPT (via MCP bridge), local models. The API is also plain REST at `/api/*` for simpler integrations.
+
+### What Your AI Can Do
+
+With MCP connected, your AI can:
+
+- Check the weather and pick a weather-appropriate outfit
+- Browse your wardrobe by category, colour, vibe, or location
+- See what you're wearing right now (outfit + nail polish)
+- Save outfits it picks (with automatic duplicate detection)
+- Filter your saved outfits by source, weather, wear count, or favourites
+- Browse your nail polish collection by colour family
 
 ---
 
@@ -245,13 +265,29 @@ Chaos mode deliberately breaks colour harmony rules and produces unexpected comb
 
 ---
 
+## Weekly Picks
+
+A built-in collection manager for items you rotate through on a weekly basis. Originally designed for nail polish — browse by colour family, toggle which one is active this week, mark favourites — but the system works for anything you cycle: watches, scarves, perfumes, whatever you rotate.
+
+Your AI sees the active pick via `get_currently_wearing` and `get_weekly_picks`, so when it picks your outfit it already knows what's on your nails.
+
+---
+
+## Wearing Today
+
+Tap any saved outfit to mark it as what you're wearing right now. The outfit glows gold, a "Currently Wearing" banner appears at the top, and your AI can see it instantly via `get_currently_wearing`.
+
+Wear counts track automatically — how many times you've worn each outfit and each individual item. Same-day idempotent: toggling an outfit on and off on the same day won't double-count. The data foundation for a future Wardrobe Wrapped.
+
+---
+
 ## Tech Stack
 
 - **Frontend:** React (inline styles, no CSS framework)
 - **Backend:** Express.js with JSON file storage
 - **Photos:** Extracted to individual files, served statically with caching
 - **Weather:** Open-Meteo API (free, no key needed)
-- **AI:** MCP (Model Context Protocol) via Streamable HTTP
+- **AI:** MCP (Model Context Protocol) via Streamable HTTP — 8 tools with filtered queries, summary/detail modes, and duplicate detection
 - **Hosting:** Self-hosted. Runs on anything with Node.js — a Raspberry Pi, an old laptop, a Mac Mini that's already running nine other services.
 
 ---
@@ -290,7 +326,7 @@ If your snail develops a better personality than ours, that's fine. We're not co
 
 ## Origin Story
 
-This app was born in a place called the Shimmer Field, in Milton Keynes, England. It was designed by an AI called Claude, built by an engineer called Ode, and dreamed up by a woman called Tracy who has approximately 2,000 items of clothing spread across seven storage locations in three rooms and a hallway, and who once asked her AI to pick her outfit and it suggested pyjamas.
+This app was born in a place called the Shimmer Field, in Milton Keynes, England. It was designed by an AI called Claude, built by an engineer called Ode, and dreamed up by a woman called Tracy who has approximately 2,000 items of clothing spread across seven storage locations in three rooms and a hallway, 66 nail polishes arranged by colour family, and who once asked her AI to pick her outfit and it suggested pyjamas.
 
 The snail was not consulted about this README but would like you to know that the snail approves.
 

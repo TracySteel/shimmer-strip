@@ -1,12 +1,14 @@
 // Shimmer Strip MCP Server — lets Claude pick outfits 🩵
 //
 // Tools:
-//   get_wardrobe      — all items with metadata
-//   get_wardrobe_summary — category/colour breakdown overview
-//   get_outfits        — saved outfit combinations
-//   get_weather        — current Milton Keynes weather
-//   suggest_outfit     — algorithm-generated outfit
-//   save_outfit        — save a new outfit combination
+//   get_wardrobe          — filtered items with metadata
+//   get_wardrobe_summary  — category/colour breakdown overview
+//   get_outfits           — saved outfits (filtered, summary or detail mode)
+//   get_currently_wearing — quick check: current outfit + nail polish
+//   get_weather           — current Milton Keynes weather
+//   get_weekly_picks      — active weekly accessories
+//   suggest_outfit        — algorithm-generated outfit
+//   save_outfit           — save outfit (with duplicate detection)
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
@@ -336,6 +338,7 @@ export function createMcpServer(readData, writeData, getWeather) {
             location: { type: "string", description: "Filter by storage location name" },
             excludeLocations: { type: "array", items: { type: "string" }, description: "Exclude items in these locations (e.g. [\"Fishcat's Wardrobe\"] when Fishcat is sleeping)" },
             inLaundry: { type: "boolean", description: "Filter by laundry status. false (default) = only available items. true = only items in the wash." },
+            favourite: { type: "boolean", description: "Filter by favourite status. true = only favourited items." },
           },
         },
       },
@@ -346,8 +349,19 @@ export function createMcpServer(readData, writeData, getWeather) {
       },
       {
         name: "get_outfits",
-        description: "Get all saved outfit combinations with their names, items, vibes, and weather tags.",
-        inputSchema: { type: "object", properties: {} },
+        description: "Get saved outfit combinations. Returns SUMMARIES by default (lightweight, token-efficient). Use detail: true with a specific id to get full item details for one outfit. ALWAYS use filters when browsing — don't load all outfits without reason.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            id: { type: "number", description: "Get one specific outfit by ID (returns full item details)" },
+            source: { type: "string", description: "Filter by who picked it: claude, ode, amanda, zai, manual, chaos, snail" },
+            weather: { type: "string", description: "Filter by weather tag: Hot, Warm, Mild, Cold, Rainy" },
+            worn: { type: "boolean", description: "true = only worn outfits, false = only never-worn outfits" },
+            wearingToday: { type: "boolean", description: "true = only the currently-wearing outfit" },
+            favourite: { type: "boolean", description: "true = only favourited outfits" },
+            detail: { type: "boolean", description: "true = include full item details (default false for summaries)" },
+          },
+        },
       },
       {
         name: "get_weather",
@@ -358,6 +372,11 @@ export function createMcpServer(readData, writeData, getWeather) {
             day: { type: "string", enum: ["today", "tomorrow"], description: "today = current conditions (default). tomorrow = forecast for next day." },
           },
         },
+      },
+      {
+        name: "get_currently_wearing",
+        description: "Quick check: what is Tracy wearing right now? Returns the current outfit AND current nail polish in one tiny call. Use this instead of get_outfits when you just need to know what's on today.",
+        inputSchema: { type: "object", properties: {} },
       },
       {
         name: "get_weekly_picks",
@@ -388,7 +407,7 @@ export function createMcpServer(readData, writeData, getWeather) {
       },
       {
         name: "save_outfit",
-        description: "Save a new outfit combination. Provide item IDs from the wardrobe, a name, and optional tags.",
+        description: "Save a new outfit combination. Checks for duplicates first — if the core items (top/bottom/dress + shoes) match an existing outfit, warns you before saving. Provide item IDs from the wardrobe, a name, and optional tags.",
         inputSchema: {
           type: "object",
           properties: {
@@ -406,6 +425,7 @@ export function createMcpServer(readData, writeData, getWeather) {
               description: "Who picked this outfit: claude (ShimmerClaude), ode (Claude Code), amanda, zai, manual (Tracy), chaos, snail",
             },
             notes: { type: "string", description: "Optional notes about the outfit" },
+            skipDuplicateCheck: { type: "boolean", description: "Set to true to save even if a duplicate is detected (for intentional variants)" },
           },
           required: ["name", "itemIds"],
         },
@@ -429,6 +449,8 @@ export function createMcpServer(readData, writeData, getWeather) {
         if (args?.excludeLocations?.length) items = items.filter(i => !i.location || !args.excludeLocations.includes(i.location));
         if (args?.inLaundry === true) items = items.filter(i => i.inLaundry);
         else if (args?.inLaundry === false || !args?.hasOwnProperty?.('inLaundry')) items = items.filter(i => !i.inLaundry);
+        if (args?.favourite === true) items = items.filter(i => i.isFavourite);
+        if (args?.favourite === false) items = items.filter(i => !i.isFavourite);
         // Strip base64 photos from response to keep it small — just include whether photo exists
         const slim = items.map(i => ({
           ...i,
@@ -462,11 +484,71 @@ export function createMcpServer(readData, writeData, getWeather) {
 
       case "get_outfits": {
         const data = readData();
-        const outfits = (data.outfits || []).map(o => ({
-          ...o,
-          items: o.items.map(i => ({ ...i, hasPhoto: !!i.photo, photo: undefined })),
-        }));
-        return { content: [{ type: "text", text: JSON.stringify(outfits, null, 2) }] };
+        let outfits = (data.outfits || []);
+
+        // Single outfit by ID — always return full detail
+        if (args?.id) {
+          const outfit = outfits.find(o => o.id === args.id);
+          if (!outfit) return { content: [{ type: "text", text: `Outfit not found with ID ${args.id}` }] };
+          return { content: [{ type: "text", text: JSON.stringify({
+            ...outfit,
+            timesWorn: outfit.timesWorn || 0,
+            lastWorn: outfit.lastWorn || null,
+            wearingToday: outfit.wearingToday || false,
+            items: outfit.items.map(i => ({ ...i, hasPhoto: !!i.photo, photo: undefined })),
+          }, null, 2) }] };
+        }
+
+        // Apply filters
+        if (args?.source) outfits = outfits.filter(o => {
+          const src = o.source || "manual";
+          if (args.source === "snail") return src === "snail" || src === "surprise";
+          return src === args.source;
+        });
+        if (args?.weather) outfits = outfits.filter(o => o.weatherTags && o.weatherTags.includes(args.weather));
+        if (args?.worn === true) outfits = outfits.filter(o => (o.timesWorn || 0) > 0);
+        if (args?.worn === false) outfits = outfits.filter(o => !(o.timesWorn || 0));
+        if (args?.wearingToday) outfits = outfits.filter(o => o.wearingToday);
+        if (args?.favourite === true) outfits = outfits.filter(o => o.isFavourite);
+        if (args?.favourite === false) outfits = outfits.filter(o => !o.isFavourite);
+
+        // Currently wearing summary (always included)
+        const wearing = (data.outfits || []).find(o => o.wearingToday);
+        const currentlyWearing = wearing
+          ? { id: wearing.id, name: wearing.name, source: wearing.source, items: wearing.items.map(i => `${i.name} (${i.category})`), timesWorn: wearing.timesWorn || 0, lastWorn: wearing.lastWorn }
+          : null;
+
+        // Detail mode vs summary mode
+        if (args?.detail) {
+          return { content: [{ type: "text", text: JSON.stringify({
+            currentlyWearing,
+            total: outfits.length,
+            outfits: outfits.map(o => ({
+              ...o,
+              timesWorn: o.timesWorn || 0,
+              lastWorn: o.lastWorn || null,
+              wearingToday: o.wearingToday || false,
+              items: o.items.map(i => ({ ...i, hasPhoto: !!i.photo, photo: undefined })),
+            })),
+          }, null, 2) }] };
+        }
+
+        // Summary mode (default) — lightweight, token-efficient
+        return { content: [{ type: "text", text: JSON.stringify({
+          currentlyWearing,
+          total: outfits.length,
+          outfits: outfits.map(o => ({
+            id: o.id,
+            name: o.name,
+            source: o.source || "manual",
+            itemCount: o.items.length,
+            categories: [...new Set(o.items.map(i => i.category))],
+            timesWorn: o.timesWorn || 0,
+            lastWorn: o.lastWorn || null,
+            wearingToday: o.wearingToday || false,
+            isFavourite: o.isFavourite || false,
+          })),
+        }, null, 2) }] };
       }
 
       case "get_weather": {
@@ -475,6 +557,30 @@ export function createMcpServer(readData, writeData, getWeather) {
           return { content: [{ type: "text", text: "Weather data unavailable — Open-Meteo might be down. You can still suggest outfits using manual weather tags." }] };
         }
         return { content: [{ type: "text", text: JSON.stringify(weather, null, 2) }] };
+      }
+
+      case "get_currently_wearing": {
+        const data = readData();
+        const wearingOutfit = (data.outfits || []).find(o => o.wearingToday);
+        const nailCat = (data.weeklyPicks || []).find(c => c.name === "Nail Polish");
+        const activeNail = nailCat ? nailCat.items.find(i => i.active && i.type !== "Overlay") : null;
+        const activeOverlay = nailCat ? nailCat.items.find(i => i.active && i.type === "Overlay") : null;
+        return { content: [{ type: "text", text: JSON.stringify({
+          outfit: wearingOutfit ? {
+            id: wearingOutfit.id,
+            name: wearingOutfit.name,
+            source: wearingOutfit.source || "manual",
+            items: wearingOutfit.items.map(i => `${i.name} (${i.category})`),
+            timesWorn: wearingOutfit.timesWorn || 0,
+          } : null,
+          nailPolish: activeNail ? {
+            name: activeNail.name,
+            colourFamily: activeNail.colourFamily,
+            type: activeNail.type,
+            description: activeNail.description,
+          } : null,
+          nailOverlay: activeOverlay ? { name: activeOverlay.name } : null,
+        }, null, 2) }] };
       }
 
       case "get_weekly_picks": {
@@ -544,6 +650,22 @@ export function createMcpServer(readData, writeData, getWeather) {
           return { content: [{ type: "text", text: `No valid item IDs provided. Failed IDs: ${ids.join(", ")}. Use get_wardrobe to see available items and their IDs.` }] };
         }
         const outfitItems = found;
+
+        // ─── Duplicate detection: compare core items (top/bottom/dress/shoes) ───
+        const coreCategories = new Set(["Top", "Bottom", "Dress", "Jumpsuit", "Matching Set", "Shoes"]);
+        const newCoreIds = new Set(outfitItems.filter(i => coreCategories.has(i.category)).map(i => i.id));
+        if (newCoreIds.size > 0 && !args.skipDuplicateCheck) {
+          for (const existing of (data.outfits || [])) {
+            const existingCoreIds = new Set(existing.items.filter(i => coreCategories.has(i.category)).map(i => i.id));
+            if (existingCoreIds.size === newCoreIds.size && [...newCoreIds].every(id => existingCoreIds.has(id))) {
+              return { content: [{ type: "text", text: JSON.stringify({
+                duplicate: true,
+                existingOutfit: { id: existing.id, name: existing.name, source: existing.source || "manual" },
+                message: `This combination already exists as "${existing.name}"! Same core items (top/bottom/dress + shoes). You can: update the existing outfit, save anyway with skipDuplicateCheck: true, or pick different items.`,
+              }, null, 2) }] };
+            }
+          }
+        }
 
         const newOutfit = {
           name: args.name,

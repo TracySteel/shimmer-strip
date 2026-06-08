@@ -93,7 +93,6 @@ export const SYSTEM_PICKERS = [
   { id: "ode", label: "Ode's Pick", icon: "💛", color: "#c4a43a" },
   { id: "chaos", label: "Chaos Mode", icon: "🌀", color: "#e86b6b" },
   { id: "snail", label: "Snail's Pick", icon: "🐌", color: "#c4956a" },
-  { id: "surprise", label: "Snail's Pick", icon: "🐌", color: "#c4956a" },
 ];
 
 // ─── Mascot: The Snail ───

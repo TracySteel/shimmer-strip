@@ -172,6 +172,16 @@ app.post('/api/items/:id/laundry', (req, res) => {
   res.json({ ok: true, inLaundry: item.inLaundry });
 });
 
+// Toggle favourite on item
+app.post('/api/items/:id/favourite', (req, res) => {
+  const data = readData();
+  const item = data.items.find(i => String(i.id) === req.params.id);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  item.isFavourite = !item.isFavourite;
+  writeData(data);
+  res.json({ ok: true, isFavourite: item.isFavourite });
+});
+
 // Clear all laundry (laundry done!)
 app.post('/api/laundry/done', (req, res) => {
   const data = readData();
@@ -237,6 +247,53 @@ app.delete('/api/outfits/:id', (req, res) => {
   data.outfits = data.outfits.filter(o => String(o.id) !== req.params.id);
   writeData(data);
   res.json({ ok: true });
+});
+
+// Toggle "wearing today" — mutual exclusion + wear count tracking
+app.post('/api/outfits/:id/wear-today', (req, res) => {
+  const data = readData();
+  const outfit = data.outfits.find(o => String(o.id) === req.params.id);
+  if (!outfit) return res.status(404).json({ error: 'Outfit not found' });
+
+  const today = new Date().toISOString().split('T')[0];
+  const wasWearing = outfit.wearingToday;
+
+  if (wasWearing) {
+    // Toggle OFF — don't decrement counters
+    outfit.wearingToday = false;
+  } else {
+    // Toggle ON — clear all others first (mutual exclusion)
+    data.outfits.forEach(o => { o.wearingToday = false; });
+    outfit.wearingToday = true;
+
+    // Only increment counters if not already worn today (idempotent)
+    if (outfit.lastWorn !== today) {
+      outfit.timesWorn = (outfit.timesWorn || 0) + 1;
+      outfit.lastWorn = today;
+
+      // Increment wear count on each item in the outfit
+      const outfitItemIds = new Set(outfit.items.map(i => String(i.id)));
+      data.items.forEach(item => {
+        if (outfitItemIds.has(String(item.id))) {
+          item.wearCount = (item.wearCount || 0) + 1;
+          item.lastWorn = today;
+        }
+      });
+    }
+  }
+
+  writeData(data);
+  res.json({ ok: true, wearingToday: outfit.wearingToday });
+});
+
+// Toggle favourite on outfit
+app.post('/api/outfits/:id/favourite', (req, res) => {
+  const data = readData();
+  const outfit = data.outfits.find(o => String(o.id) === req.params.id);
+  if (!outfit) return res.status(404).json({ error: 'Outfit not found' });
+  outfit.isFavourite = !outfit.isFavourite;
+  writeData(data);
+  res.json({ ok: true, isFavourite: outfit.isFavourite });
 });
 
 // ── Custom Colours ──
@@ -309,6 +366,18 @@ app.delete('/api/weekly-picks/categories/:catId/items/:itemId', (req, res) => {
   cat.items = cat.items.filter(i => String(i.id) !== req.params.itemId);
   writeData(data);
   res.json({ ok: true });
+});
+
+// Toggle favourite on weekly pick item
+app.post('/api/weekly-picks/categories/:catId/items/:itemId/favourite', (req, res) => {
+  const data = readData();
+  const cat = (data.weeklyPicks || []).find(c => String(c.id) === req.params.catId);
+  if (!cat) return res.status(404).json({ error: 'Category not found' });
+  const item = cat.items.find(i => String(i.id) === req.params.itemId);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+  item.isFavourite = !item.isFavourite;
+  writeData(data);
+  res.json({ ok: true, isFavourite: item.isFavourite });
 });
 
 // Toggle active — deactivates others (unless overlay)

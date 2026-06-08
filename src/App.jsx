@@ -4,7 +4,8 @@ import {
   fetchAllData, addItemToServer, updateItemOnServer, removeItemFromServer,
   addOutfitToServer, updateOutfitOnServer, removeOutfitFromServer,
   addColourToServer, removeColourFromServer,
-  toggleLaundryOnServer, laundryDoneOnServer,
+  toggleLaundryOnServer, laundryDoneOnServer, toggleWearToday,
+  toggleItemFavourite, toggleOutfitFavourite, toggleWeeklyItemFavourite,
   getWeeklyPicks, createWeeklyCategory, addWeeklyItem, toggleWeeklyItem, deleteWeeklyItem,
 } from "./storage.js";
 import { COLOURS, getAllColours, getColourObj, outfitColourScore, loadCustomColours, saveCustomColours, guessWarmth } from "./colours.js";
@@ -99,7 +100,7 @@ function ConfirmModal({ message, itemName, onConfirm, onCancel }) {
 }
 
 // ─── Item Card ───
-function ItemCard({ item, onRemove, onEdit, onSelect, onLaundry, selected, showSelect, idx }) {
+function ItemCard({ item, onRemove, onEdit, onSelect, onLaundry, onFavourite, selected, showSelect, idx }) {
   const col = getColourObj(item.colour);
   const inLaundry = item.inLaundry;
   return (
@@ -171,6 +172,12 @@ function ItemCard({ item, onRemove, onEdit, onSelect, onLaundry, selected, showS
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>{"\uD83D\uDCCD"} {item.location}</p>
       )}
+      {(item.wearCount || 0) > 0 && (
+        <p style={{
+          fontSize: 9, color: "#8a7a6a", margin: "3px 0 0",
+          letterSpacing: 0.3,
+        }}>worn {item.wearCount}x</p>
+      )}
       {onEdit && (
         <button
           onClick={e => { e.stopPropagation(); onEdit(item); }}
@@ -194,6 +201,22 @@ function ItemCard({ item, onRemove, onEdit, onSelect, onLaundry, selected, showS
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >{"\u00D7"}</button>
+      )}
+      {onFavourite && (
+        <button
+          onClick={e => { e.stopPropagation(); onFavourite(item.id); }}
+          title={item.isFavourite ? "Unfavourite" : "Favourite"}
+          style={{
+            position: "absolute", bottom: 8, left: 8,
+            background: item.isFavourite ? "rgba(196,149,106,0.25)" : "rgba(0,0,0,0.3)",
+            border: item.isFavourite ? "1px solid rgba(196,149,106,0.4)" : "none",
+            color: item.isFavourite ? "#c4956a" : "#6a5a4a",
+            width: 22, height: 22,
+            borderRadius: "50%", fontSize: 11, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.2s ease",
+          }}
+        >{item.isFavourite ? "⭐" : "☆"}</button>
       )}
       {onLaundry && (
         <button
@@ -432,6 +455,17 @@ export default function App() {
     });
   };
 
+  // ─── Duplicate outfit detection (core items: top/bottom/dress/shoes) ───
+  const CORE_CATEGORIES = new Set(["Top", "Bottom", "Dress", "Jumpsuit", "Matching Set", "Shoes"]);
+  const findDuplicateOutfit = (outfitItems) => {
+    const newCoreIds = new Set(outfitItems.filter(i => CORE_CATEGORIES.has(i.category)).map(i => i.id));
+    if (newCoreIds.size === 0) return null;
+    return savedOutfits.find(existing => {
+      const existingCoreIds = new Set(existing.items.filter(i => CORE_CATEGORIES.has(i.category)).map(i => i.id));
+      return existingCoreIds.size === newCoreIds.size && [...newCoreIds].every(id => existingCoreIds.has(id));
+    }) || null;
+  };
+
   const startSaveOutfit = () => {
     if (outfit.length === 0) { showToast("Pick some pieces first! \uD83D\uDC0C"); return; }
     setOutfitForm({ name: "", vibes: [], weatherTags: [], pickedBy: "manual" });
@@ -439,6 +473,12 @@ export default function App() {
   };
 
   const confirmSaveOutfit = async () => {
+    // Check for duplicate core items
+    const dupe = findDuplicateOutfit(outfit);
+    if (dupe) {
+      showToast(`You already have this outfit, love! It's called "${dupe.name}" \uD83D\uDC96`);
+      return;
+    }
     const name = outfitForm.name.trim() || `Outfit ${savedOutfits.length + 1}`;
     const newOutfit = {
       name, items: [...outfit], id: Date.now(),
@@ -560,6 +600,12 @@ export default function App() {
 
   const saveSurpriseOutfit = async () => {
     if (!surpriseResult || !surpriseResult.items.length) return;
+    // Check for duplicate core items
+    const dupe = findDuplicateOutfit(surpriseResult.items);
+    if (dupe) {
+      showToast(`The snail tried to pick "${dupe.name}" again! Spin for a new one? 🐌`);
+      return;
+    }
     const isChaos = surpriseResult.structure === "chaos";
     const name = isChaos ? pickChaosName() : pickSnailName();
     const source = isChaos ? "chaos" : "snail";
@@ -601,6 +647,72 @@ export default function App() {
     if (!ok) {
       setItems(prev);
       showToast("Couldn't clear laundry 😿");
+    }
+  };
+
+  // ─── Favourites ───
+  const toggleFavouriteItem = async (id) => {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+    const was = item.isFavourite;
+    setItems(prev => prev.map(i => i.id === id ? { ...i, isFavourite: !i.isFavourite } : i));
+    const ok = await toggleItemFavourite(id);
+    if (!ok) setItems(prev => prev.map(i => i.id === id ? { ...i, isFavourite: was } : i));
+  };
+
+  const toggleFavouriteOutfit = async (id) => {
+    const outfit = savedOutfits.find(o => o.id === id);
+    if (!outfit) return;
+    const was = outfit.isFavourite;
+    setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, isFavourite: !o.isFavourite } : o));
+    showToast(was ? "Unfavourited 💔" : "Favourited! ⭐");
+    const ok = await toggleOutfitFavourite(id);
+    if (!ok) setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, isFavourite: was } : o));
+  };
+
+  // ─── Wearing Today ───
+  const handleWearToday = async (outfitId) => {
+    const outfit = savedOutfits.find(o => o.id === outfitId);
+    if (!outfit) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const wasWearing = outfit.wearingToday;
+    const isNewWear = !wasWearing && outfit.lastWorn !== today;
+
+    // Save previous state for rollback
+    const prevOutfits = savedOutfits.map(o => ({ ...o }));
+    const prevItems = items.map(i => ({ ...i }));
+
+    // Optimistic update: outfits
+    setSavedOutfits(cur => cur.map(o => {
+      if (o.id === outfitId) {
+        return {
+          ...o,
+          wearingToday: !wasWearing,
+          ...(isNewWear ? { timesWorn: (o.timesWorn || 0) + 1, lastWorn: today } : {}),
+        };
+      }
+      return { ...o, wearingToday: false };
+    }));
+
+    // Optimistic update: item wear counts (only if new wear)
+    if (isNewWear) {
+      const outfitItemIds = new Set(outfit.items.map(i => i.id));
+      setItems(cur => cur.map(i => {
+        if (outfitItemIds.has(i.id)) {
+          return { ...i, wearCount: (i.wearCount || 0) + 1, lastWorn: today };
+        }
+        return i;
+      }));
+    }
+
+    showToast(wasWearing ? `Outfit un-worn` : `Wearing "${outfit.name}" today! 👗`);
+
+    const ok = await toggleWearToday(outfitId);
+    if (!ok) {
+      setSavedOutfits(prevOutfits);
+      setItems(prevItems);
+      showToast("Couldn't update — server didn't respond 😿");
     }
   };
 
@@ -854,7 +966,7 @@ export default function App() {
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
                   {filteredItems.slice(0, wardrobePage * ITEMS_PER_PAGE).map((item, idx) => (
-                    <ItemCard key={item.id} item={item} onRemove={isAuthed ? requestRemoveItem : undefined} onEdit={isAuthed ? startEditItem : undefined} onLaundry={isAuthed ? toggleLaundry : undefined} idx={idx} />
+                    <ItemCard key={item.id} item={item} onRemove={isAuthed ? requestRemoveItem : undefined} onEdit={isAuthed ? startEditItem : undefined} onLaundry={isAuthed ? toggleLaundry : undefined} onFavourite={isAuthed ? toggleFavouriteItem : undefined} idx={idx} />
                   ))}
                 </div>
                 {wardrobePage * ITEMS_PER_PAGE < filteredItems.length && (
@@ -1391,6 +1503,48 @@ export default function App() {
               </div>
             ) : (
               <>
+                {/* Currently Wearing */}
+                {(() => {
+                  const wearing = savedOutfits.find(o => o.wearingToday);
+                  if (!wearing) return null;
+                  return (
+                    <div
+                      onClick={() => setExpandedOutfit(expandedOutfit === wearing.id ? null : wearing.id)}
+                      style={{
+                        background: "rgba(196,149,106,0.1)", borderRadius: 12,
+                        padding: "10px 14px", marginBottom: 12, cursor: "pointer",
+                        border: "1px solid rgba(196,149,106,0.2)",
+                        display: "flex", alignItems: "center", gap: 12,
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 3 }}>
+                        {wearing.items.slice(0, 5).map(item => (
+                          <div key={item.id} style={{
+                            width: 12, height: 12, borderRadius: "50%",
+                            background: getColourObj(item.colour).hex,
+                            border: "1px solid rgba(255,255,255,0.15)",
+                          }} />
+                        ))}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: 11, color: "#8a7a6a", letterSpacing: 0.5 }}>
+                          {"👗"} Currently Wearing
+                        </p>
+                        <p style={{ margin: 0, fontSize: 14, color: "#d4c4b0", fontWeight: 600 }}>
+                          {wearing.name}
+                        </p>
+                      </div>
+                      {wearing.timesWorn > 0 && (
+                        <span style={{
+                          fontSize: 9, padding: "2px 8px", borderRadius: 10,
+                          background: "rgba(196,149,106,0.15)", color: "#8a7a6a",
+                          letterSpacing: 0.3,
+                        }}>worn {wearing.timesWorn}x</span>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Source filter */}
                 <div style={{
                   display: "flex", gap: 6, overflowX: "auto", paddingBottom: 10,
@@ -1459,11 +1613,12 @@ export default function App() {
 
                     return (
                       <div key={o.id} style={{
-                        background: "rgba(196,149,106,0.04)",
-                        border: `1px solid ${isExpanded ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.1)"}`,
+                        background: o.wearingToday ? "rgba(196,149,106,0.1)" : "rgba(196,149,106,0.04)",
+                        border: `1px solid ${o.wearingToday ? "rgba(196,149,106,0.35)" : isExpanded ? "rgba(196,149,106,0.25)" : "rgba(196,149,106,0.1)"}`,
                         borderRadius: 16, overflow: "hidden",
                         transition: "all 0.3s ease",
                         animation: `fadeSlideIn 0.4s ease ${idx * 0.06}s both`,
+                        ...(o.wearingToday ? { boxShadow: "0 0 16px rgba(196,149,106,0.12)" } : {}),
                       }}>
                         {/* Collapsed header — always visible */}
                         <div
@@ -1494,11 +1649,25 @@ export default function App() {
                                 background: `${sourceBadge.color}20`,
                                 color: sourceBadge.color, letterSpacing: 0.5,
                               }}>{sourceBadge.icon} {sourceBadge.label}</span>
+                              {o.wearingToday && <span style={{
+                                fontSize: 9, padding: "2px 8px", borderRadius: 10,
+                                background: "rgba(196,149,106,0.2)", color: "#c4956a",
+                                letterSpacing: 0.5,
+                              }}>{"👗"} wearing</span>}
                             </div>
                             <p style={{ fontSize: 11, color: "#8a7a6a", margin: 0 }}>
                               {o.items.length} pieces {o.items.map(i => i.category).filter((v, i, a) => a.indexOf(v) === i).join(" · ")}
+                              {(o.timesWorn || 0) > 0 && ` · worn ${o.timesWorn}x`}
                             </p>
                           </div>
+                          {isAuthed && <span
+                            onClick={e => { e.stopPropagation(); toggleFavouriteOutfit(o.id); }}
+                            style={{
+                              fontSize: 16, cursor: "pointer",
+                              color: o.isFavourite ? "#c4956a" : "#4a3a2a",
+                              transition: "all 0.2s ease",
+                            }}
+                          >{o.isFavourite ? "⭐" : "☆"}</span>}
                           <span style={{
                             fontSize: 14, color: "#6a5a4a",
                             transform: isExpanded ? "rotate(180deg)" : "rotate(0)",
@@ -1664,7 +1833,17 @@ export default function App() {
                                 <ColourScoreBar score={outfitColourScore(o.items)} />
 
                                 {/* Actions — authed only */}
-                                {isAuthed && <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                                {isAuthed && <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                                  <button onClick={() => handleWearToday(o.id)} style={{
+                                    flex: 1, padding: "8px 14px",
+                                    background: o.wearingToday ? "rgba(196,149,106,0.2)" : "rgba(196,149,106,0.08)",
+                                    border: `1px solid ${o.wearingToday ? "rgba(196,149,106,0.4)" : "rgba(196,149,106,0.15)"}`,
+                                    borderRadius: 10,
+                                    color: o.wearingToday ? "#c4956a" : "#8a7a6a",
+                                    fontSize: 11, fontFamily: "inherit",
+                                    cursor: "pointer", letterSpacing: 0.5,
+                                    fontWeight: o.wearingToday ? 600 : 400,
+                                  }}>{o.wearingToday ? "✨ Wearing Now" : "👗 Wearing This"}</button>
                                   <button onClick={() => startBuildEdit(o)} style={{
                                     flex: 1, padding: "8px 14px",
                                     background: "rgba(196,149,106,0.08)",
@@ -1727,7 +1906,7 @@ export default function App() {
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
                     {laundryItems.map((item, idx) => (
-                      <ItemCard key={item.id} item={item} onLaundry={isAuthed ? toggleLaundry : undefined} idx={idx} />
+                      <ItemCard key={item.id} item={item} onLaundry={isAuthed ? toggleLaundry : undefined} onFavourite={isAuthed ? toggleFavouriteItem : undefined} idx={idx} />
                     ))}
                   </div>
                 </>
@@ -1904,7 +2083,7 @@ export default function App() {
                               <span style={{
                                 width: 8, height: 8, borderRadius: "50%", display: "inline-block",
                                 background: {
-                                  Pink:"#d4748a", Red:"#c43a3a", Coral:"#e8a87c", Purple:"#6a3d7a",
+                                  Pink:"#d4748a", Red:"#c43a3a", "Coral & Orange":"#e8a87c", Purple:"#6a3d7a",
                                   Blue:"#4a6a8a", Teal:"#2a7a7a", Green:"#4a7a4a", Neutral:"#a09080",
                                   Yellow:"#d4b83a", Fuchsia:"#c43a7a", Dark:"#2a2a2a", Metallic:"#c4a43a",
                                   Shimmer:"#7ab0c4", Overlay:"linear-gradient(135deg,#c4956a,#7ab0c4)",
@@ -1923,7 +2102,7 @@ export default function App() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
                     {cat.items.filter(i => weeklyColourFilter === "All" || i.colourFamily === weeklyColourFilter).map(item => {
                       const swatchColour = {
-                        Pink:"#d4748a", Red:"#c43a3a", Coral:"#e8a87c", Purple:"#6a3d7a",
+                        Pink:"#d4748a", Red:"#c43a3a", "Coral & Orange":"#e8a87c", Purple:"#6a3d7a",
                         Blue:"#4a6a8a", Teal:"#2a7a7a", Green:"#4a7a4a", Neutral:"#a09080",
                         Yellow:"#d4b83a", Fuchsia:"#c43a7a", Dark:"#2a2a2a", Metallic:"#c4a43a",
                         Shimmer:"#7ab0c4", Overlay:"#c4956a",
@@ -1968,6 +2147,24 @@ export default function App() {
                         </p>
                         {item.description && (
                           <p style={{ fontSize: 9, color: "#6a5a4a", margin: "2px 0 0", fontStyle: "italic" }}>{item.description}</p>
+                        )}
+                        {isAuthed && (
+                          <span
+                            onClick={async e => {
+                              e.stopPropagation();
+                              const prev = [...weeklyPicks];
+                              setWeeklyPicks(wps => wps.map(c => c.id !== cat.id ? c : {
+                                ...c, items: c.items.map(i => i.id === item.id ? { ...i, isFavourite: !i.isFavourite } : i),
+                              }));
+                              const ok = await toggleWeeklyItemFavourite(cat.id, item.id);
+                              if (!ok) setWeeklyPicks(prev);
+                            }}
+                            style={{
+                              display: "block", fontSize: 12, marginTop: 4,
+                              cursor: "pointer", color: item.isFavourite ? "#c4956a" : "#4a3a2a",
+                              transition: "all 0.2s ease",
+                            }}
+                          >{item.isFavourite ? "⭐" : "☆"}</span>
                         )}
                       </div>
                       );
