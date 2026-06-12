@@ -375,7 +375,7 @@ export function createMcpServer(readData, writeData, getWeather) {
       },
       {
         name: "get_currently_wearing",
-        description: "Quick check: what is Tracy wearing right now? Returns the current outfit AND current nail polish in one tiny call. Use this instead of get_outfits when you just need to know what's on today.",
+        description: "Quick check: what is Tracy wearing right now? Returns the current outfit AND all active weekly picks (nail polish, phone case, etc.) in one tiny call. Use this instead of get_outfits when you just need to know what's on today.",
         inputSchema: { type: "object", properties: {} },
       },
       {
@@ -562,9 +562,19 @@ export function createMcpServer(readData, writeData, getWeather) {
       case "get_currently_wearing": {
         const data = readData();
         const wearingOutfit = (data.outfits || []).find(o => o.wearingToday);
-        const nailCat = (data.weeklyPicks || []).find(c => c.name === "Nail Polish");
-        const activeNail = nailCat ? nailCat.items.find(i => i.active && i.type !== "Overlay") : null;
-        const activeOverlay = nailCat ? nailCat.items.find(i => i.active && i.type === "Overlay") : null;
+        // Gather active items from ALL weekly pick categories
+        const weeklyActive = {};
+        for (const cat of (data.weeklyPicks || [])) {
+          const active = cat.items.filter(i => i.active);
+          if (active.length > 0) {
+            weeklyActive[cat.name] = active.map(i => ({
+              name: i.name,
+              ...(i.colourFamily ? { colourFamily: i.colourFamily } : {}),
+              ...(i.type ? { type: i.type } : {}),
+              ...(i.description ? { description: i.description } : {}),
+            }));
+          }
+        }
         return { content: [{ type: "text", text: JSON.stringify({
           outfit: wearingOutfit ? {
             id: wearingOutfit.id,
@@ -573,27 +583,25 @@ export function createMcpServer(readData, writeData, getWeather) {
             items: wearingOutfit.items.map(i => `${i.name} (${i.category})`),
             timesWorn: wearingOutfit.timesWorn || 0,
           } : null,
-          nailPolish: activeNail ? {
-            name: activeNail.name,
-            colourFamily: activeNail.colourFamily,
-            type: activeNail.type,
-            description: activeNail.description,
-          } : null,
-          nailOverlay: activeOverlay ? { name: activeOverlay.name } : null,
+          weeklyPicks: Object.keys(weeklyActive).length > 0 ? weeklyActive : null,
         }, null, 2) }] };
       }
 
       case "get_weekly_picks": {
         const data = readData();
-        const picks = (data.weeklyPicks || []).map(cat => ({
-          category: cat.name,
-          active: cat.items.filter(i => i.active && i.type !== "Overlay").map(i => ({
-            name: i.name, colourFamily: i.colourFamily, type: i.type, description: i.description,
-          }))[0] || null,
-          overlay: cat.items.filter(i => i.active && i.type === "Overlay").map(i => ({
-            name: i.name, description: i.description,
-          }))[0] || null,
-        })).filter(c => c.active || c.overlay);
+        const picks = (data.weeklyPicks || []).map(cat => {
+          const activeItems = cat.items.filter(i => i.active).map(i => ({
+            name: i.name,
+            ...(i.colourFamily ? { colourFamily: i.colourFamily } : {}),
+            ...(i.type ? { type: i.type } : {}),
+            ...(i.description ? { description: i.description } : {}),
+          }));
+          return {
+            category: cat.name,
+            totalItems: cat.items.length,
+            active: activeItems.length > 0 ? activeItems : null,
+          };
+        });
         return { content: [{ type: "text", text: JSON.stringify(picks.length ? { weeklyPicks: picks } : { weeklyPicks: [], note: "No weekly picks set. User hasn't created any categories or toggled any items as active." }, null, 2) }] };
       }
 

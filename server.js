@@ -388,21 +388,8 @@ app.post('/api/weekly-picks/categories/:catId/items/:itemId/toggle', (req, res) 
   const item = cat.items.find(i => String(i.id) === req.params.itemId);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
-  const isOverlay = item.type === 'Overlay';
-  const wasActive = item.active;
-
-  if (wasActive) {
-    item.active = false;
-  } else {
-    // Deactivate others (unless this is an overlay or the other is an overlay)
-    if (!isOverlay) {
-      cat.items.forEach(i => { if (i.type !== 'Overlay') i.active = false; });
-    } else {
-      // Overlay: deactivate other overlays only
-      cat.items.forEach(i => { if (i.type === 'Overlay') i.active = false; });
-    }
-    item.active = true;
-  }
+  // Toggle independently — multiple items can be active per category
+  item.active = !item.active;
 
   writeData(data);
   res.json({ ok: true, active: item.active });
