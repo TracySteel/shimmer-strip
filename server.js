@@ -73,7 +73,8 @@ function saveBase64Photo(base64Data, filename) {
   if (!match) return null;
   const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
   const buffer = Buffer.from(match[2], 'base64');
-  const fullFilename = `${filename}.${ext}`;
+  const ts = Date.now();
+  const fullFilename = `${filename}-${ts}.${ext}`;
   fs.writeFileSync(path.join(PHOTOS_DIR, fullFilename), buffer);
   return `/photos/${fullFilename}`;
 }

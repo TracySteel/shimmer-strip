@@ -2327,8 +2327,14 @@ export default function App() {
                   setWeeklyPicks(wps => wps.map(c => c.id !== catId ? c : {
                     ...c, items: c.items.map(i => i.id === item.id ? { ...item } : i),
                   }));
-                  const ok = await updateWeeklyItem(catId, item);
-                  if (ok) {
+                  const res = await updateWeeklyItem(catId, item);
+                  if (res) {
+                    // Use server's item (has extracted photo path) if available
+                    if (res.item) {
+                      setWeeklyPicks(wps => wps.map(c => c.id !== catId ? c : {
+                        ...c, items: c.items.map(i => i.id === item.id ? { ...res.item } : i),
+                      }));
+                    }
                     showToast(`${item.name} updated! ✨`);
                   } else {
                     setWeeklyPicks(prev);

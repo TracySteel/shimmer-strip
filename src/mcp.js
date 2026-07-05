@@ -380,8 +380,14 @@ export function createMcpServer(readData, writeData, getWeather) {
       },
       {
         name: "get_weekly_picks",
-        description: "Get weekly accessory categories (e.g. nail polish, watches) with their currently active items. Use this to coordinate outfit suggestions with what's currently being worn/used this week.",
-        inputSchema: { type: "object", properties: {} },
+        description: "Browse weekly accessory collections (nail polish, phone cases, perfume, etc). Without a category filter, returns a summary of all categories with active items. With a category, lists ALL items in that collection by name. Use for coordinating outfits or browsing a specific collection.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            category: { type: "string", description: "Filter to a specific category name (e.g. 'Nail Polish', 'Phone Case'). Returns all items in that category. Omit to get a summary of all categories." },
+            colourFamily: { type: "string", description: "Filter items within a category by colour family (e.g. 'Pink', 'Red', 'Blue')" },
+          },
+        },
       },
       {
         name: "suggest_outfit",
@@ -589,7 +595,34 @@ export function createMcpServer(readData, writeData, getWeather) {
 
       case "get_weekly_picks": {
         const data = readData();
-        const picks = (data.weeklyPicks || []).map(cat => {
+        const allCats = data.weeklyPicks || [];
+
+        // If a specific category is requested, list ALL its items
+        if (args?.category) {
+          const cat = allCats.find(c => c.name.toLowerCase() === args.category.toLowerCase());
+          if (!cat) return { content: [{ type: "text", text: JSON.stringify({ error: `Category "${args.category}" not found. Available: ${allCats.map(c => c.name).join(", ")}` }) }] };
+          let items = cat.items;
+          if (args?.colourFamily) {
+            items = items.filter(i => i.colourFamily && i.colourFamily.toLowerCase() === args.colourFamily.toLowerCase());
+          }
+          return { content: [{ type: "text", text: JSON.stringify({
+            category: cat.name,
+            totalItems: cat.items.length,
+            showing: items.length,
+            ...(args.colourFamily ? { filteredBy: args.colourFamily } : {}),
+            items: items.map(i => ({
+              name: i.name,
+              active: i.active || false,
+              ...(i.colourFamily ? { colourFamily: i.colourFamily } : {}),
+              ...(i.type ? { type: i.type } : {}),
+              ...(i.description ? { description: i.description } : {}),
+              ...(i.isFavourite ? { favourite: true } : {}),
+            })),
+          }, null, 2) }] };
+        }
+
+        // No category filter: summary of all categories with active items
+        const picks = allCats.map(cat => {
           const activeItems = cat.items.filter(i => i.active).map(i => ({
             name: i.name,
             ...(i.colourFamily ? { colourFamily: i.colourFamily } : {}),

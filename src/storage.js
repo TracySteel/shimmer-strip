@@ -143,18 +143,40 @@ export async function getWeeklyPicks() {
   return await apiGet('/weekly-picks') || [];
 }
 export async function createWeeklyCategory(cat) {
-  const res = await apiPost('/weekly-picks/categories', cat);
-  return res;
+  try {
+    const res = await fetch(`${API_BASE}/weekly-picks/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cat),
+    });
+    if (res.ok) return await res.json(); // { ok: true, category: {...} } with real server ID
+  } catch { /* server not reachable */ }
+  return null;
 }
 export async function deleteWeeklyCategory(id) {
   return await apiDelete(`/weekly-picks/categories/${id}`);
 }
 export async function addWeeklyItem(catId, item) {
-  const res = await apiPost(`/weekly-picks/categories/${catId}/items`, item);
-  return res;
+  try {
+    const res = await fetch(`${API_BASE}/weekly-picks/categories/${catId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+    if (res.ok) return await res.json(); // { ok: true, item: {...} } with real server ID
+  } catch { /* server not reachable */ }
+  return null;
 }
 export async function updateWeeklyItem(catId, item) {
-  return await apiPut(`/weekly-picks/categories/${catId}/items/${item.id}`, item);
+  try {
+    const res = await fetch(`${API_BASE}/weekly-picks/categories/${catId}/items/${item.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    });
+    if (res.ok) return await res.json(); // { ok: true, item: {...} } with extracted photo
+  } catch { /* server not reachable */ }
+  return null;
 }
 export async function deleteWeeklyItem(catId, itemId) {
   return await apiDelete(`/weekly-picks/categories/${catId}/items/${itemId}`);
